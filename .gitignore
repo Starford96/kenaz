@@ -50,3 +50,5 @@ Thumbs.db
 
 # Swag intermediate output
 api/schema/kenaz/swag/
+
+vault/*
