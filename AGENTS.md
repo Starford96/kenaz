@@ -59,6 +59,13 @@ This includes (non-exhaustive):
 - API documentation
 - agent-generated documentation artifacts
 
+## OpenClaw Invocation Rule
+
+When invoking `openclaw agent` from automation/scripts, always set channel explicitly to avoid incorrect telemetry attribution:
+
+- Use: `--channel telegram`
+- Never rely on the default channel value.
+
 ## Reporting Format
 
 When finishing a batch, provide:
