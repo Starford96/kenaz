@@ -1,0 +1,163 @@
+package index
+
+import (
+	"context"
+	"log/slog"
+	"os"
+	"path/filepath"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/starford/kenaz/internal/storage"
+)
+
+// watcherTestEnv sets up a vault dir, storage, and DB for watcher tests.
+func watcherTestEnv(t *testing.T) (string, storage.Provider, *DB) {
+	t.Helper()
+	vaultDir := t.TempDir()
+	store, err := storage.NewFS(vaultDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dbFile, err := os.CreateTemp("", "kenaz-watcher-test-*.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	dbFile.Close()
+	t.Cleanup(func() { os.Remove(dbFile.Name()) })
+	db, err := Open(dbFile.Name())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { db.Close() })
+	return vaultDir, store, db
+}
+
+func TestWatcher_NewFileIndexed(t *testing.T) {
+	vaultDir, store, db := watcherTestEnv(t)
+	logger := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	var mu sync.Mutex
+	var events []string
+
+	go Watch(ctx, db, store, vaultDir, logger, func(kind, path string) {
+		mu.Lock()
+		events = append(events, kind+":"+path)
+		mu.Unlock()
+	})
+	time.Sleep(100 * time.Millisecond) // let watcher start
+
+	// Create a file.
+	_ = os.WriteFile(filepath.Join(vaultDir, "new.md"), []byte("# New"), 0o644)
+	time.Sleep(300 * time.Millisecond)
+
+	cs, _ := db.GetChecksum("new.md")
+	if cs == "" {
+		t.Error("new file not indexed by watcher")
+	}
+
+	mu.Lock()
+	found := false
+	for _, e := range events {
+		if e == "created:new.md" {
+			found = true
+		}
+	}
+	mu.Unlock()
+	if !found {
+		t.Errorf("expected created:new.md callback, got %v", events)
+	}
+}
+
+func TestWatcher_NewDirWatched(t *testing.T) {
+	vaultDir, store, db := watcherTestEnv(t)
+	logger := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	var mu sync.Mutex
+	var events []string
+
+	go Watch(ctx, db, store, vaultDir, logger, func(kind, path string) {
+		mu.Lock()
+		events = append(events, kind+":"+path)
+		mu.Unlock()
+	})
+	time.Sleep(100 * time.Millisecond)
+
+	// Create a new subdirectory, then add a file in it.
+	subDir := filepath.Join(vaultDir, "subdir")
+	_ = os.MkdirAll(subDir, 0o755)
+	time.Sleep(150 * time.Millisecond) // let watcher pick up new dir
+
+	_ = os.WriteFile(filepath.Join(subDir, "deep.md"), []byte("# Deep"), 0o644)
+	time.Sleep(300 * time.Millisecond)
+
+	cs, _ := db.GetChecksum(filepath.Join("subdir", "deep.md"))
+	if cs == "" {
+		t.Error("file in new subdir not indexed by watcher")
+	}
+}
+
+func TestWatcher_DeleteRemovesFromIndex(t *testing.T) {
+	vaultDir, store, db := watcherTestEnv(t)
+	logger := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
+
+	// Pre-create a file.
+	_ = os.WriteFile(filepath.Join(vaultDir, "del.md"), []byte("# Delete Me"), 0o644)
+	Sync(db, store, logger)
+
+	cs, _ := db.GetChecksum("del.md")
+	if cs == "" {
+		t.Fatal("precondition: file should be indexed")
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go Watch(ctx, db, store, vaultDir, logger, nil)
+	time.Sleep(100 * time.Millisecond)
+
+	_ = os.Remove(filepath.Join(vaultDir, "del.md"))
+	time.Sleep(300 * time.Millisecond)
+
+	cs, _ = db.GetChecksum("del.md")
+	if cs != "" {
+		t.Error("deleted file still in index")
+	}
+}
+
+func TestWatcher_RenameReconciles(t *testing.T) {
+	vaultDir, store, db := watcherTestEnv(t)
+	logger := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
+
+	// Pre-create a file.
+	_ = os.WriteFile(filepath.Join(vaultDir, "old.md"), []byte("# Rename"), 0o644)
+	Sync(db, store, logger)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go Watch(ctx, db, store, vaultDir, logger, nil)
+	time.Sleep(100 * time.Millisecond)
+
+	// Rename old.md → renamed.md.
+	_ = os.Rename(filepath.Join(vaultDir, "old.md"), filepath.Join(vaultDir, "renamed.md"))
+	// Wait for rename event + reconciliation timer (200ms) + processing.
+	time.Sleep(600 * time.Millisecond)
+
+	oldCS, _ := db.GetChecksum("old.md")
+	if oldCS != "" {
+		t.Error("old path should be removed from index after rename")
+	}
+
+	newCS, _ := db.GetChecksum("renamed.md")
+	if newCS == "" {
+		t.Error("renamed file should be indexed under new path")
+	}
+}

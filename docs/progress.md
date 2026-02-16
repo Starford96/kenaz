@@ -45,6 +45,12 @@
 - Health endpoints (`/health/live`, `/health/ready`) remain public
 - 6 config validation tests + 3 SSE auth tests
 
+### Watcher Robustness ✅
+- New directories dynamically added to fsnotify watch list at runtime
+- Rename events: old path deleted immediately, debounced reconciliation (200ms) indexes new path and cleans stragglers
+- `indexNewDir` indexes .md files in directories that arrive with content
+- 4 watcher integration tests: new file, new subdir, delete, rename reconciliation
+
 ## Remaining
 
 ### Batch 6 — Frontend (Spec 06)
