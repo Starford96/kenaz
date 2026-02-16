@@ -114,6 +114,23 @@ export default function NoteView({ path }: Props) {
     return () => window.removeEventListener("keydown", handler);
   }, [editing, enterEdit, exitEdit, handleSave]);
 
+  const markdownContent = useMemo(() => {
+    const raw = note?.content ?? "";
+    // Strip YAML frontmatter in preview mode.
+    const withoutFrontmatter = raw.replace(/^---\n[\s\S]*?\n---\n?/, "");
+
+    // Convert wikilinks to markdown links with custom scheme.
+    // [[target]] -> [target](wikilink:target)
+    // [[target|label]] -> [label](wikilink:target)
+    return withoutFrontmatter.replace(/\[\[(.*?)\]\]/g, (_, inner: string) => {
+      const pipeIdx = inner.indexOf("|");
+      const target = (pipeIdx >= 0 ? inner.slice(0, pipeIdx) : inner).trim();
+      const label = (pipeIdx >= 0 ? inner.slice(pipeIdx + 1) : inner).trim();
+      if (!target) return "";
+      return `[${label || target}](wikilink:${target})`;
+    });
+  }, [note?.content]);
+
   if (isLoading) return <Spin style={{ marginTop: 48 }} />;
   if (error || !note)
     return (
@@ -130,22 +147,6 @@ export default function NoteView({ path }: Props) {
       </div>
     );
 
-  const markdownContent = useMemo(() => {
-    const raw = note.content ?? "";
-    // Strip YAML frontmatter in preview mode.
-    const withoutFrontmatter = raw.replace(/^---\n[\s\S]*?\n---\n?/, "");
-
-    // Convert wikilinks to markdown links with custom scheme.
-    // [[target]] -> [target](wikilink:target)
-    // [[target|label]] -> [label](wikilink:target)
-    return withoutFrontmatter.replace(/\[\[(.*?)\]\]/g, (_, inner: string) => {
-      const pipeIdx = inner.indexOf("|");
-      const target = (pipeIdx >= 0 ? inner.slice(0, pipeIdx) : inner).trim();
-      const label = (pipeIdx >= 0 ? inner.slice(pipeIdx + 1) : inner).trim();
-      if (!target) return "";
-      return `[${label || target}](wikilink:${target})`;
-    });
-  }, [note.content]);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
