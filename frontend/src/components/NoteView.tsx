@@ -1,12 +1,14 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Spin, Typography, Tag, Divider, List, Button, Space, App } from "antd";
 import { LinkOutlined, EditOutlined, EyeOutlined } from "@ant-design/icons";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { getNote, updateNote, listNotes, type NoteDetail } from "../api/notes";
 import { useUIStore } from "../store/ui";
 import MarkdownEditor from "./MarkdownEditor";
 
-const { Text, Paragraph } = Typography;
+const { Text } = Typography;
 
 interface Props {
   path: string;
@@ -128,27 +130,22 @@ export default function NoteView({ path }: Props) {
       </div>
     );
 
-  // Simple wikilink rendering: replace [[target]] and [[target|alias]].
-  const renderContent = (raw: string) => {
-    const parts = raw.split(/(\[\[.*?\]\])/g);
-    return parts.map((part, i) => {
-      const m = part.match(/^\[\[(.*?)\]\]$/);
-      if (!m) return <span key={i}>{part}</span>;
-      const inner = m[1];
+  const markdownContent = useMemo(() => {
+    const raw = note.content ?? "";
+    // Strip YAML frontmatter in preview mode.
+    const withoutFrontmatter = raw.replace(/^---\n[\s\S]*?\n---\n?/, "");
+
+    // Convert wikilinks to markdown links with custom scheme.
+    // [[target]] -> [target](wikilink:target)
+    // [[target|label]] -> [label](wikilink:target)
+    return withoutFrontmatter.replace(/\[\[(.*?)\]\]/g, (_, inner: string) => {
       const pipeIdx = inner.indexOf("|");
-      const target = pipeIdx >= 0 ? inner.slice(0, pipeIdx) : inner;
-      const label = pipeIdx >= 0 ? inner.slice(pipeIdx + 1) : inner;
-      return (
-        <span
-          key={i}
-          className="wikilink"
-          onClick={() => openTab(target.trim(), label.trim())}
-        >
-          {label}
-        </span>
-      );
+      const target = (pipeIdx >= 0 ? inner.slice(0, pipeIdx) : inner).trim();
+      const label = (pipeIdx >= 0 ? inner.slice(pipeIdx + 1) : inner).trim();
+      if (!target) return "";
+      return `[${label || target}](wikilink:${target})`;
     });
-  };
+  }, [note.content]);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
@@ -207,9 +204,28 @@ export default function NoteView({ path }: Props) {
           />
         ) : (
           <div className="md-preview" style={{ padding: "16px 24px", maxWidth: 800 }}>
-            <Paragraph style={{ whiteSpace: "pre-wrap" }}>
-              {renderContent(note.content)}
-            </Paragraph>
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              components={{
+                a: ({ href, children }) => {
+                  if (href?.startsWith("wikilink:")) {
+                    const target = decodeURIComponent(href.replace("wikilink:", "")).trim();
+                    return (
+                      <span className="wikilink" onClick={() => openTab(target, target)}>
+                        {children}
+                      </span>
+                    );
+                  }
+                  return (
+                    <a href={href} target="_blank" rel="noreferrer">
+                      {children}
+                    </a>
+                  );
+                },
+              }}
+            >
+              {markdownContent}
+            </ReactMarkdown>
 
             {note.backlinks.length > 0 && (
               <>
