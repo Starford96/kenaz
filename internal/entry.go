@@ -15,6 +15,10 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"golang.org/x/sync/errgroup"
+
+	"github.com/starford/kenaz/internal/api"
+	"github.com/starford/kenaz/internal/index"
+	"github.com/starford/kenaz/internal/storage"
 )
 
 // Run starts the application with the given options.
@@ -43,6 +47,33 @@ func Run(ctx context.Context, opts ...Option) error {
 		slog.String("sqlite_path", cfg.SQLite.Path),
 		slog.String("log_level", cfg.App.LogLevel.String()))
 
+	// Ensure vault directory exists.
+	if err := os.MkdirAll(cfg.Vault.Path, 0o755); err != nil {
+		return fmt.Errorf("create vault dir: %w", err)
+	}
+
+	// Initialize storage.
+	store, err := storage.NewFS(cfg.Vault.Path)
+	if err != nil {
+		return fmt.Errorf("init storage: %w", err)
+	}
+
+	// Initialize SQLite index.
+	db, err := index.Open(cfg.SQLite.Path)
+	if err != nil {
+		return fmt.Errorf("init index: %w", err)
+	}
+	defer db.Close()
+
+	// Run initial sync.
+	if err := index.Sync(db, store, logger); err != nil {
+		logger.Warn("initial sync failed", slog.String("error", err.Error()))
+	}
+
+	// Build API service and router.
+	svc := api.NewService(store, db)
+	apiRouter := api.NewRouter(svc, cfg.Auth.Token)
+
 	// Build chi router.
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
@@ -50,18 +81,21 @@ func Run(ctx context.Context, opts ...Option) error {
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
-	// Health check endpoints.
+	// Health check endpoints (unauthenticated).
 	r.Get("/health/live", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"status":"ok"}`))
 	})
 	r.Get("/health/ready", func(w http.ResponseWriter, _ *http.Request) {
-		// TODO: check SQLite connectivity once wired.
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"status":"ok"}`))
 	})
 
-	// TODO: Mount /api routes (notes, search, graph, attachments) in future batches.
+	// Mount API routes under /api.
+	r.Mount("/api", apiRouter)
+
 	// TODO: Mount /api/events SSE endpoint in future batches.
 
 	httpServer := &http.Server{
@@ -72,6 +106,12 @@ func Run(ctx context.Context, opts ...Option) error {
 	logger.Info("Server starting...", slog.String("http_address", cfg.App.HTTP.Address()))
 
 	g, gCtx := errgroup.WithContext(ctx)
+
+	// Start file watcher.
+	g.Go(func() error {
+		index.Watch(gCtx, db, store, cfg.Vault.Path, logger, nil)
+		return nil
+	})
 
 	// Start HTTP server.
 	g.Go(func() error {

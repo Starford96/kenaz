@@ -113,6 +113,134 @@ func (db *DB) AllPaths() (map[string]struct{}, error) {
 	return out, rows.Err()
 }
 
+// GetNote returns a single note row or nil if not found.
+func (db *DB) GetNote(path string) (*NoteRow, error) {
+	var n NoteRow
+	var tagsJSON string
+	err := db.conn.QueryRow(
+		`SELECT path, title, checksum, tags, updated_at FROM notes WHERE path = ?`, path,
+	).Scan(&n.Path, &n.Title, &n.Checksum, &tagsJSON, &n.UpdatedAt)
+	if err != nil {
+		return nil, nil // not found
+	}
+	_ = json.Unmarshal([]byte(tagsJSON), &n.Tags)
+	if n.Tags == nil {
+		n.Tags = []string{}
+	}
+	return &n, nil
+}
+
+// ListNotes returns note rows with optional pagination and tag filter.
+func (db *DB) ListNotes(limit, offset int, tag, sort string) ([]NoteRow, int, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	if sort == "" {
+		sort = "updated_at"
+	}
+	// Whitelist sort columns.
+	switch sort {
+	case "updated_at", "title", "path":
+	default:
+		sort = "updated_at"
+	}
+
+	where := ""
+	args := []interface{}{}
+	if tag != "" {
+		where = `WHERE tags LIKE ?`
+		args = append(args, `%"`+tag+`"%`)
+	}
+
+	// Total count.
+	var total int
+	countQ := `SELECT count(*) FROM notes ` + where
+	if err := db.conn.QueryRow(countQ, args...).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("index: count notes: %w", err)
+	}
+
+	q := fmt.Sprintf(`SELECT path, title, checksum, tags, updated_at FROM notes %s ORDER BY %s DESC LIMIT ? OFFSET ?`, where, sort)
+	queryArgs := append(args, limit, offset)
+	rows, err := db.conn.Query(q, queryArgs...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("index: list notes: %w", err)
+	}
+	defer rows.Close()
+
+	var out []NoteRow
+	for rows.Next() {
+		var n NoteRow
+		var tagsJSON string
+		if err := rows.Scan(&n.Path, &n.Title, &n.Checksum, &tagsJSON, &n.UpdatedAt); err != nil {
+			return nil, 0, err
+		}
+		_ = json.Unmarshal([]byte(tagsJSON), &n.Tags)
+		if n.Tags == nil {
+			n.Tags = []string{}
+		}
+		out = append(out, n)
+	}
+	return out, total, rows.Err()
+}
+
+// GraphNode represents a node in the knowledge graph.
+type GraphNode struct {
+	ID    string `json:"id"`
+	Title string `json:"title,omitempty"`
+}
+
+// GraphLink represents an edge in the knowledge graph.
+type GraphLink struct {
+	Source string `json:"source"`
+	Target string `json:"target"`
+}
+
+// Graph returns all nodes and links for graph visualization.
+func (db *DB) Graph() ([]GraphNode, []GraphLink, error) {
+	// Nodes from notes table.
+	rows, err := db.conn.Query(`SELECT path, title FROM notes`)
+	if err != nil {
+		return nil, nil, fmt.Errorf("index: graph nodes: %w", err)
+	}
+	defer rows.Close()
+
+	nodeSet := make(map[string]string)
+	var nodes []GraphNode
+	for rows.Next() {
+		var path, title string
+		if err := rows.Scan(&path, &title); err != nil {
+			return nil, nil, err
+		}
+		nodeSet[path] = title
+		nodes = append(nodes, GraphNode{ID: path, Title: title})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, nil, err
+	}
+
+	// Links.
+	lrows, err := db.conn.Query(`SELECT source, target FROM links`)
+	if err != nil {
+		return nil, nil, fmt.Errorf("index: graph links: %w", err)
+	}
+	defer lrows.Close()
+
+	var links []GraphLink
+	for lrows.Next() {
+		var l GraphLink
+		if err := lrows.Scan(&l.Source, &l.Target); err != nil {
+			return nil, nil, err
+		}
+		// Add target as a node if it is not already indexed.
+		if _, exists := nodeSet[l.Target]; !exists {
+			nodeSet[l.Target] = ""
+			nodes = append(nodes, GraphNode{ID: l.Target})
+		}
+		links = append(links, l)
+	}
+	return nodes, links, lrows.Err()
+}
+
 // Backlinks returns all note paths that link to the given target.
 func (db *DB) Backlinks(target string) ([]string, error) {
 	rows, err := db.conn.Query(`SELECT source FROM links WHERE target = ?`, target)
