@@ -3,7 +3,7 @@ VERSION?=latest
 BUILD_DIR=build
 BINARY_NAME=app
 LDFLAGS=-ldflags "-s -w -X main.Version=$(VERSION)"
-BUILD_FLAGS=-trimpath -installsuffix cgo
+BUILD_FLAGS=-trimpath -installsuffix cgo -tags sqlite_fts5
 LINT_BIN_PATH?=$(shell go env GOPATH)/bin
 
 .PHONY: build build-linux run test clean docker-build docker-up docker-down docker-logs fmt lint install-lint deps help
@@ -15,7 +15,7 @@ build-linux:
 # Build the application.
 build:
 	@mkdir -p $(BUILD_DIR)
-	CGO_ENABLED=0 go build \
+	CGO_ENABLED=1 go build \
 		$(BUILD_FLAGS) \
 		$(LDFLAGS) \
 		-o $(BUILD_DIR)/$(BINARY_NAME) \
@@ -27,7 +27,7 @@ run: build
 
 # Run tests.
 test:
-	go test -v ./...
+	CGO_ENABLED=1 go test -v -tags sqlite_fts5 ./...
 
 # Clean build artifacts.
 clean:
