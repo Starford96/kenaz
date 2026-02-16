@@ -56,4 +56,5 @@ make help          # Show all targets
 - [REST API](docs/specs/03_rest_api.md)
 - [Real-time Updates](docs/specs/04_realtime_updates.md)
 - [MCP Server](docs/specs/05_mcp_server.md)
+- [Note Format Contract](docs/note_format.md)
 - [Frontend](docs/specs/06_frontend.md)

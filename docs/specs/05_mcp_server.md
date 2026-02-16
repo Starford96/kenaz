@@ -9,6 +9,9 @@
 ## 5.2. Tools
 Expose internal Service methods as MCP Tools.
 
+For canonical note content expectations, see:
+- [`docs/note_format.md`](../note_format.md)
+
 1.  **`search_notes`**
     -   Arg: `query` (string)
     -   Desc: "Fuzzy search through notes content and titles."
@@ -45,3 +48,46 @@ Expose internal Service methods as MCP Tools.
 ### Integration Tests
 -   **Stdio**: Run the server process, send JSON-RPC request to stdin, verify response on stdout.
 -   **MCP Inspector**: Use the MCP Inspector tool to interactively test all tools and resources during development.
+
+## 5.5. Tool Payload Examples
+
+### `create_note` (recommended content format)
+
+```json
+{
+  "path": "projects/kenaz/fe3-polish.md",
+  "content": "---\ntitle: \"Kenaz FE-3 Polish\"\ntags: [\"frontend\", \"ux\"]\nupdated_at: \"2026-02-16T10:15:00Z\"\n---\n\n# Kenaz FE-3 Polish\n\n## Summary\n\nPolish tasks for Obsidian-like UX.\n\n## Related\n\n- [[frontend-spec]]\n"
+}
+```
+
+### `read_note`
+
+```json
+{
+  "path": "projects/kenaz/fe3-polish.md"
+}
+```
+
+### `search_notes`
+
+```json
+{
+  "query": "wikilink autocomplete"
+}
+```
+
+### `list_notes`
+
+```json
+{
+  "folder": "projects/kenaz"
+}
+```
+
+### `get_backlinks`
+
+```json
+{
+  "path": "frontend-spec.md"
+}
+```

@@ -66,6 +66,14 @@ When invoking `openclaw agent` from automation/scripts, always set channel expli
 - Use: `--channel telegram`
 - Never rely on the default channel value.
 
+## Note Authoring Contract
+
+When creating notes via API/MCP or generating sample note content, follow:
+
+- `docs/note_format.md`
+
+Prefer valid frontmatter and canonical wikilink syntax.
+
 ## Reporting Format
 
 When finishing a batch, provide:

@@ -102,6 +102,12 @@
 - `.md-preview` CSS class applied to read-mode note content
 - Editor and preview share consistent line-height rhythm (1.75)
 
+### Documentation Hardening — MCP + Note Contract ✅
+- Added `docs/note_format.md` as canonical note content contract
+- Added frontmatter schema guidance and markdown examples for agent-created notes
+- Expanded MCP spec with concrete tool payload examples
+- Linked note format contract from README and AGENTS rules
+
 ## Remaining
 
 ### Future Enhancements
