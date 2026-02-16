@@ -15,10 +15,11 @@ const (
 
 // Config represents the application configuration.
 type Config struct {
-	App    ApplicationConfig `yaml:"app"`
-	Vault  VaultConfig       `yaml:"vault"`
-	SQLite SQLiteConfig      `yaml:"sqlite"`
-	Auth   AuthConfig        `yaml:"auth"`
+	App      ApplicationConfig `yaml:"app"`
+	Vault    VaultConfig       `yaml:"vault"`
+	SQLite   SQLiteConfig      `yaml:"sqlite"`
+	Auth     AuthConfig        `yaml:"auth"`
+	Frontend FrontendConfig    `yaml:"frontend"`
 }
 
 // Validate validates the configuration.
@@ -32,7 +33,10 @@ func (c *Config) Validate() error {
 	if err := c.SQLite.Validate(); err != nil {
 		return err
 	}
-	return c.Auth.Validate()
+	if err := c.Auth.Validate(); err != nil {
+		return err
+	}
+	return c.Frontend.Validate()
 }
 
 // ApplicationConfig holds application-level configuration.
@@ -119,6 +123,22 @@ func (c *AuthConfig) AuthEnabled() bool {
 	return c.Mode == AuthModeToken
 }
 
+// FrontendConfig controls serving static frontend assets from the backend.
+type FrontendConfig struct {
+	Enabled  bool   `yaml:"enabled"`
+	DistPath string `yaml:"dist_path"`
+}
+
+// Validate validates frontend configuration.
+func (c *FrontendConfig) Validate() error {
+	if !c.Enabled {
+		return nil
+	}
+	return validation.ValidateStruct(c,
+		validation.Field(&c.DistPath, validation.Required),
+	)
+}
+
 // NewDefaultConfig returns a new Config with sensible default values.
 func NewDefaultConfig() *Config {
 	return &Config{
@@ -136,6 +156,10 @@ func NewDefaultConfig() *Config {
 		},
 		Auth: AuthConfig{
 			Mode: AuthModeDisabled,
+		},
+		Frontend: FrontendConfig{
+			Enabled:  true,
+			DistPath: "./frontend/dist",
 		},
 	}
 }

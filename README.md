@@ -34,6 +34,8 @@ npm run build    # Production build → frontend/dist/
 
 Set `VITE_AUTH_TOKEN` in `frontend/.env` if the backend uses token auth mode.
 
+In Docker mode, the backend serves the compiled frontend bundle from `/app/frontend/dist`.
+
 ## Development
 
 ```bash

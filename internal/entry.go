@@ -9,7 +9,9 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -47,6 +49,8 @@ func Run(ctx context.Context, opts ...Option) error {
 		slog.String("http_address", cfg.App.HTTP.Address()),
 		slog.String("vault_path", cfg.Vault.Path),
 		slog.String("sqlite_path", cfg.SQLite.Path),
+		slog.Bool("frontend_enabled", cfg.Frontend.Enabled),
+		slog.String("frontend_dist_path", cfg.Frontend.DistPath),
 		slog.String("log_level", cfg.App.LogLevel.String()))
 
 	// Ensure vault directory exists.
@@ -112,6 +116,39 @@ func Run(ctx context.Context, opts ...Option) error {
 	// referenced by notes, analogous to images on a web page).
 	attachHandler := api.NewAttachmentHandler(cfg.Vault.Path)
 	r.Get("/attachments/{filename}", attachHandler.ServeFile)
+
+	// Serve frontend static bundle from backend (SPA mode).
+	if cfg.Frontend.Enabled {
+		distPath := cfg.Frontend.DistPath
+		if err := os.MkdirAll(distPath, 0o755); err != nil {
+			return fmt.Errorf("create frontend dist dir: %w", err)
+		}
+		indexPath := filepath.Join(distPath, "index.html")
+		if _, err := os.Stat(indexPath); err == nil {
+			staticFS := http.FileServer(http.Dir(distPath))
+			r.Get("/*", func(w http.ResponseWriter, req *http.Request) {
+				p := req.URL.Path
+				if strings.HasPrefix(p, "/api/") || strings.HasPrefix(p, "/attachments/") || strings.HasPrefix(p, "/health/") {
+					http.NotFound(w, req)
+					return
+				}
+				clean := path.Clean(p)
+				if clean == "/" {
+					http.ServeFile(w, req, indexPath)
+					return
+				}
+				candidate := filepath.Join(distPath, strings.TrimPrefix(clean, "/"))
+				if info, err := os.Stat(candidate); err == nil && !info.IsDir() {
+					staticFS.ServeHTTP(w, req)
+					return
+				}
+				http.ServeFile(w, req, indexPath)
+			})
+			logger.Info("frontend static serving enabled", slog.String("dist_path", distPath))
+		} else {
+			logger.Warn("frontend dist not found; UI serving disabled", slog.String("expected_index", indexPath))
+		}
+	}
 
 	httpServer := &http.Server{
 		Addr:    cfg.App.HTTP.Address(),

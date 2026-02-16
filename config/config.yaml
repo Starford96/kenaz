@@ -12,3 +12,7 @@ sqlite:
 auth:
   mode: ${AUTH_MODE:-disabled}
   token: ${AUTH_TOKEN:-}
+
+frontend:
+  enabled: ${FRONTEND_ENABLED:-true}
+  dist_path: ${FRONTEND_DIST_PATH:-./frontend/dist}
