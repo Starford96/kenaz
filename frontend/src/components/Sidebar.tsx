@@ -1,13 +1,16 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Input, Tree, Typography, Spin, Space } from "antd";
+import { Input, Tree, Typography, Spin, Space, Button } from "antd";
 import {
   FileMarkdownOutlined,
   FolderOutlined,
   SearchOutlined,
+  PlusOutlined,
 } from "@ant-design/icons";
 import type { DataNode } from "antd/es/tree";
 import { listNotes, type NoteListItem } from "../api/notes";
 import { useUIStore } from "../store/ui";
+import CreateNoteModal from "./CreateNoteModal";
 
 const { Search } = Input;
 const { Text } = Typography;
@@ -54,6 +57,7 @@ function buildTree(notes: NoteListItem[]): DataNode[] {
 
 export default function Sidebar() {
   const { openTab, setSearchOpen } = useUIStore();
+  const [createOpen, setCreateOpen] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ["notes"],
@@ -65,13 +69,22 @@ export default function Sidebar() {
   return (
     <div style={{ padding: 12, height: "100%", overflow: "auto" }}>
       <Space direction="vertical" style={{ width: "100%" }} size="small">
-        <Search
-          placeholder="Search notes…"
-          prefix={<SearchOutlined />}
-          onFocus={() => setSearchOpen(true)}
-          allowClear
-          size="small"
-        />
+        <div style={{ display: "flex", gap: 4 }}>
+          <Search
+            placeholder="Search notes…"
+            prefix={<SearchOutlined />}
+            onFocus={() => setSearchOpen(true)}
+            allowClear
+            size="small"
+            style={{ flex: 1 }}
+          />
+          <Button
+            size="small"
+            icon={<PlusOutlined />}
+            onClick={() => setCreateOpen(true)}
+            title="New note"
+          />
+        </div>
 
         {isLoading ? (
           <Spin size="small" style={{ display: "block", marginTop: 24 }} />
@@ -93,6 +106,7 @@ export default function Sidebar() {
           />
         )}
       </Space>
+      <CreateNoteModal open={createOpen} onClose={() => setCreateOpen(false)} />
     </div>
   );
 }

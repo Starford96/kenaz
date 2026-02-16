@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { ConfigProvider, Layout } from "antd";
+import { ConfigProvider, Layout, App as AntApp } from "antd";
 import { darkTheme } from "./styles/theme";
 import { useUIStore } from "./store/ui";
 import { useSSE } from "./hooks/useSSE";
@@ -30,6 +30,7 @@ export default function App() {
 
   return (
     <ConfigProvider theme={darkTheme}>
+      <AntApp>
       <Layout style={{ height: "100vh" }}>
         {/* Left sidebar: file tree + search trigger. */}
         <Sider
@@ -82,6 +83,7 @@ export default function App() {
 
       {/* Quick search modal (Cmd/Ctrl+K). */}
       <SearchModal />
+      </AntApp>
     </ConfigProvider>
   );
 }

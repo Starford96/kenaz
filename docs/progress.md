@@ -74,10 +74,17 @@
 - `make client-gen` chains `openapi` → frontend type generation
 - All frontend types flow from backend annotations (single source of truth)
 
+### FE-2A — Markdown Editing Workflow ✅
+- CodeMirror 6 Markdown editor with oneDark theme and Obsidian-like styling
+- Read/edit toggle per note (toolbar button + Cmd/Ctrl+E keyboard shortcut)
+- Save via Cmd/Ctrl+S (both global and CodeMirror keymap)
+- react-query mutations with optimistic updates and checksum-based concurrency
+- Create note modal (+ button in sidebar) with auto `.md` suffix and title derivation
+- Ant Design `App.useApp()` integration for toast messages (save/error feedback)
+
 ## Remaining
 
-### FE-2 — Editor & Graph
-- Markdown editor (CodeMirror/Monaco) with wikilink autocomplete
+### FE-2B — Graph & Polish
 - Graph visualization (react-force-graph-2d)
-- Note creation/editing through the UI
+- Wikilink autocomplete in editor
 - Attachment upload UI
