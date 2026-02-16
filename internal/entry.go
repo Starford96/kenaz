@@ -18,6 +18,7 @@ import (
 
 	"github.com/starford/kenaz/internal/api"
 	"github.com/starford/kenaz/internal/index"
+	"github.com/starford/kenaz/internal/sse"
 	"github.com/starford/kenaz/internal/storage"
 )
 
@@ -70,6 +71,9 @@ func Run(ctx context.Context, opts ...Option) error {
 		logger.Warn("initial sync failed", slog.String("error", err.Error()))
 	}
 
+	// SSE broker.
+	broker := sse.NewBroker(2 * time.Second)
+
 	// Build API service and router.
 	svc := api.NewService(store, db)
 	apiRouter := api.NewRouter(svc, cfg.Auth.Token)
@@ -96,7 +100,8 @@ func Run(ctx context.Context, opts ...Option) error {
 	// Mount API routes under /api.
 	r.Mount("/api", apiRouter)
 
-	// TODO: Mount /api/events SSE endpoint in future batches.
+	// SSE endpoint.
+	r.Get("/api/events", broker.ServeHTTP)
 
 	httpServer := &http.Server{
 		Addr:    cfg.App.HTTP.Address(),
@@ -107,9 +112,11 @@ func Run(ctx context.Context, opts ...Option) error {
 
 	g, gCtx := errgroup.WithContext(ctx)
 
-	// Start file watcher.
+	// Start file watcher with SSE callback.
 	g.Go(func() error {
-		index.Watch(gCtx, db, store, cfg.Vault.Path, logger, nil)
+		index.Watch(gCtx, db, store, cfg.Vault.Path, logger, func(kind, path string) {
+			broker.PublishNoteEvent(kind, path)
+		})
 		return nil
 	})
 

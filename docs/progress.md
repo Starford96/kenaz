@@ -1,63 +1,46 @@
-# Kenaz Progress
+# Kenaz Implementation Progress
 
-_Last updated: 2026-02-16 (UTC)_
+## Completed Batches
 
-## Current Status
+### Batch 1 — Scaffold & Config ✅
+- Go module, CLI entry point, config structs (vault, SQLite, auth)
+- Chi router with health endpoints, graceful shutdown
+- Makefile, Dockerfile, docker-compose, .env.example
 
-Project is in active backend implementation.
+### Batch 2 — Storage & Parsing ✅
+- Domain models (Note, NoteMetadata, Link)
+- Storage provider interface + filesystem implementation (atomic writes, path validation)
+- Markdown parser: YAML frontmatter, wikilinks, tags, title derivation
+- Unit tests for parser and storage
 
-### Completed
+### Batch 3 — SQLite Index ✅
+- SQLite schema: notes, links, files_fts (FTS5)
+- Repository: upsert/delete, full-text search, backlinks
+- Startup sync from vault to DB
+- File watcher (fsnotify) for real-time index updates
+- Build-tagged FTS5 with LIKE fallback
 
-1. **Batch 1 — Scaffold**
-   - Go service scaffold created from template approach.
-   - HTTP server baseline, config loading, Makefile, Docker artifacts.
-   - Commit: `1ee93c6`
+### Batch 4 — REST API ✅
+- Notes CRUD: GET/POST/PUT/DELETE /api/notes
+- Search: GET /api/search
+- Graph: GET /api/graph
+- Bearer token auth middleware (disabled when empty)
+- Optimistic concurrency (If-Match checksum, 409 on mismatch)
+- 16 handler tests
 
-2. **Agent Rules / Conventions**
-   - Repository execution rules and commit conventions defined.
-   - Commit: `37692f9`
+### Batch 5 — SSE Events & MCP Server ✅
+- SSE broker with client lifecycle management
+- GET /api/events endpoint (note.created/updated/deleted, graph.updated)
+- Graph event throttling (2s)
+- Watcher → SSE callback wiring
+- MCP server (stdio): search_notes, read_note, create_note, list_notes, get_backlinks
+- CLI subcommands: `kenaz serve` (HTTP, default) and `kenaz mcp` (stdio)
+- SSE broker tests (subscribe, publish, throttle, handler, buffer overflow)
+- MCP tool tests (create, read, list, backlinks, missing note)
 
-3. **Batch 2 — Storage & Parsing (Spec 01)**
-   - Domain models for notes.
-   - Filesystem storage provider with safe path handling and atomic writes.
-   - Markdown parser for frontmatter and wikilinks.
-   - Unit tests for parser/storage.
-   - Commit: `71dd083`
+## Remaining
 
-4. **Batch 3 — Indexing & Search (Spec 02)**
-   - SQLite index layer and schema.
-   - FTS-based search and backlinks support.
-   - Startup sync + filesystem watcher.
-   - Commit: `704b0ed`
-
-5. **Compatibility Fix**
-   - Tests now pass both with and without `sqlite_fts5` build tag.
-   - Commit: `24ab572`
-
-## Verification Snapshot
-
-- `go test ./...` — passing
-- `go test -tags sqlite_fts5 ./...` — passing
-
-## Next Planned Batch
-
-### Batch 5 — Realtime + MCP (Specs 04 & 05)
-
-Planned scope:
-- SSE broker and `/api/events`
-- Event flow from watcher/index updates
-- MCP server tools (`search_notes`, `read_note`, `create_note`, `list_notes`, `get_backlinks`)
-
-## Backlog
-
-- Frontend implementation according to Spec 06
-
-## Latest Update
-
-6. **Batch 4 — REST API (Spec 03)**
-   - Notes CRUD endpoints implemented.
-   - Search and graph endpoints implemented.
-   - Bearer auth middleware added (disabled when token is empty).
-   - Optimistic concurrency support via `If-Match` checksum.
-   - API integration tests added.
-   - Commit: `8ca3cef`
+### Batch 6 — Frontend (Spec 06)
+- React + Ant Design UI
+- Note editor, search, graph visualization
+- Real-time sync via SSE
