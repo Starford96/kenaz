@@ -1,0 +1,72 @@
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+  allow-parallel-runners: true
+
+linters:
+  enable:
+    - errcheck
+    - staticcheck
+    - govet
+    - ineffassign
+    - unused
+    - revive
+    - gocyclo
+    - gocognit
+    - dupl
+    - gosec
+    - errorlint
+    - nilerr
+    - unconvert
+    - unparam
+    - prealloc
+    - misspell
+    - whitespace
+    - godot
+    - nakedret
+    - nolintlint
+
+linters-settings:
+  errcheck:
+    check-type-assertions: true
+    check-blank: true
+    exclude-functions:
+      - (io.Closer).Close
+      - (*os.File).Close
+  govet:
+    enable-all: true
+    disable:
+      - shadow
+  gocyclo:
+    min-complexity: 15
+  gocognit:
+    min-complexity: 20
+  dupl:
+    threshold: 100
+  misspell:
+    locale: US
+  nakedret:
+    max-func-lines: 30
+  unparam:
+    check-exported: false
+  gosec:
+    excludes:
+      - G404
+  nolintlint:
+    allow-unused: false
+    require-explanation: true
+    require-specific: true
+
+issues:
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - errcheck
+        - dupl
+        - gosec
+        - gocyclo
+        - gocognit
+  max-issues-per-linter: 0
+  max-same-issues: 0

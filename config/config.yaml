@@ -1,0 +1,13 @@
+app:
+  log_level: INFO
+  http:
+    port: 8080
+
+vault:
+  path: ${VAULT_PATH:-./vault}
+
+sqlite:
+  path: ${SQLITE_PATH:-./kenaz.db}
+
+auth:
+  token: ${AUTH_TOKEN:-}
