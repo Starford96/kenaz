@@ -63,6 +63,15 @@
 - Vite dev proxy to backend on :8080
 - `npm run build` passes (tsc + vite)
 
+### API Contract Generation ✅
+- OpenAPI 3.1 spec at `api/schema/kenaz/openapi.yaml` covering all endpoints
+- `openapi-typescript` generates `frontend/src/api/schema.d.ts` from spec
+- `openapi-fetch` replaces axios as typed, spec-driven fetch client
+- Hand-written types removed; all frontend types flow from OpenAPI spec
+- `make openapi` / `make client-gen` for deterministic regeneration
+- `npm run generate` script in frontend/package.json
+- Bundle size reduced (axios removed: 888KB → 858KB)
+
 ## Remaining
 
 ### FE-2 — Editor & Graph

@@ -1,18 +1,16 @@
-import axios from "axios";
+import createClient from "openapi-fetch";
+import type { paths } from "./schema";
 
-/** Base API client. Auth token injected via interceptor if configured. */
-const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE ?? "/api",
-  headers: { "Content-Type": "application/json" },
+const baseUrl = import.meta.env.VITE_API_BASE ?? "/api";
+const token = import.meta.env.VITE_AUTH_TOKEN as string | undefined;
+
+/** Typed API client generated from OpenAPI spec. */
+const api = createClient<paths>({
+  baseUrl,
+  headers: token ? { Authorization: `Bearer ${token}` } : {},
 });
 
-// Optional Bearer token from env (for token auth mode).
-const token = import.meta.env.VITE_AUTH_TOKEN as string | undefined;
-if (token) {
-  api.interceptors.request.use((cfg) => {
-    cfg.headers.Authorization = `Bearer ${token}`;
-    return cfg;
-  });
-}
-
 export default api;
+
+// Re-export schema types for convenience.
+export type { paths, components, operations } from "./schema";

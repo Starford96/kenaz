@@ -6,7 +6,7 @@ LDFLAGS=-ldflags "-s -w -X main.Version=$(VERSION)"
 BUILD_FLAGS=-trimpath -installsuffix cgo -tags sqlite_fts5
 LINT_BIN_PATH?=$(shell go env GOPATH)/bin
 
-.PHONY: build build-linux run test clean docker-build docker-up docker-down docker-logs fmt lint install-lint deps help
+.PHONY: build build-linux run test clean docker-build docker-up docker-down docker-logs fmt lint install-lint deps help openapi client-gen frontend-build
 
 # Build for Linux (Docker).
 build-linux:
@@ -80,6 +80,17 @@ lint:
 		exit 1; \
 	fi
 
+# Generate TypeScript types from OpenAPI spec.
+openapi: client-gen
+
+# Generate typed frontend client from OpenAPI spec.
+client-gen:
+	cd frontend && npm run generate
+
+# Build the frontend.
+frontend-build:
+	cd frontend && npm run build
+
 # Help.
 help:
 	@echo "Available targets:"
@@ -96,4 +107,7 @@ help:
 	@echo "  docker-down   - Stop containers"
 	@echo "  docker-logs   - View logs"
 	@echo "  deps          - Download and tidy dependencies"
+	@echo "  openapi       - Generate TypeScript types from OpenAPI spec"
+	@echo "  client-gen    - Generate typed frontend client"
+	@echo "  frontend-build - Build frontend"
 	@echo "  help          - Show this help"
