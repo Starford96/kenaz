@@ -82,9 +82,18 @@
 - Create note modal (+ button in sidebar) with auto `.md` suffix and title derivation
 - Ant Design `App.useApp()` integration for toast messages (save/error feedback)
 
+### FE-2B — Graph, Autocomplete & Attachments ✅
+- Wikilink `[[` autocomplete in CodeMirror editor using live notes list from API
+- Interactive 2D force-directed graph view (react-force-graph-2d) with node click navigation
+- Graph lazy-loaded as separate chunk (~190KB) via React.lazy
+- Graph accessible via sidebar button, opens in a dedicated tab
+- Attachment upload via paste/drag in editor: inserts placeholder during upload, replaces with `![name](url)` on success
+- Custom autocomplete tooltip styling matching dark theme
+
 ## Remaining
 
-### FE-2B — Graph & Polish
-- Graph visualization (react-force-graph-2d)
-- Wikilink autocomplete in editor
-- Attachment upload UI
+### Future Enhancements
+- Graph: zoom controls, search/highlight, cluster coloring
+- Editor: split-pane live preview
+- Bulk operations (tag, move, delete)
+- Settings panel (vault path, auth token, theme)

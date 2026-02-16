@@ -6,6 +6,7 @@ import {
   FolderOutlined,
   SearchOutlined,
   PlusOutlined,
+  ApartmentOutlined,
 } from "@ant-design/icons";
 import type { DataNode } from "antd/es/tree";
 import { listNotes, type NoteListItem } from "../api/notes";
@@ -77,6 +78,12 @@ export default function Sidebar() {
             allowClear
             size="small"
             style={{ flex: 1 }}
+          />
+          <Button
+            size="small"
+            icon={<ApartmentOutlined />}
+            onClick={() => openTab("__graph__", "Graph")}
+            title="Knowledge graph"
           />
           <Button
             size="small"

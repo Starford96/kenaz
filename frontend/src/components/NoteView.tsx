@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Spin, Typography, Tag, Divider, List, Button, Space, App } from "antd";
 import { LinkOutlined, EditOutlined, EyeOutlined } from "@ant-design/icons";
-import { getNote, updateNote, type NoteDetail } from "../api/notes";
+import { getNote, updateNote, listNotes, type NoteDetail } from "../api/notes";
 import { useUIStore } from "../store/ui";
 import MarkdownEditor from "./MarkdownEditor";
 
@@ -20,6 +20,20 @@ export default function NoteView({ path }: Props) {
 
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
+
+  // Notes list for wikilink autocomplete.
+  const { data: notesList } = useQuery({
+    queryKey: ["notes"],
+    queryFn: () => listNotes({ limit: 1000 }),
+  });
+  const getNotePaths = useCallback(
+    () =>
+      (notesList?.notes ?? []).map((n) => ({
+        path: n.path,
+        title: n.title,
+      })),
+    [notesList],
+  );
 
   const {
     data: note,
@@ -177,6 +191,7 @@ export default function NoteView({ path }: Props) {
             onChange={setDraft}
             onSave={handleSave}
             autoFocus
+            notePaths={getNotePaths}
           />
         ) : (
           <div style={{ padding: "16px 24px", maxWidth: 800 }}>

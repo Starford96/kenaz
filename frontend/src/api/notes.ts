@@ -87,3 +87,23 @@ export async function getGraph() {
   if (!data) throw new Error("failed to get graph");
   return data as GraphData;
 }
+
+/** Upload an attachment file (multipart/form-data). */
+export async function uploadAttachment(
+  file: File,
+): Promise<{ filename: string; size: number; url: string }> {
+  const baseUrl = import.meta.env.VITE_API_BASE ?? "/api";
+  const token = import.meta.env.VITE_AUTH_TOKEN as string | undefined;
+  const form = new FormData();
+  form.append("file", file);
+  const res = await fetch(`${baseUrl}/attachments`, {
+    method: "POST",
+    body: form,
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error ?? "upload failed");
+  }
+  return res.json();
+}

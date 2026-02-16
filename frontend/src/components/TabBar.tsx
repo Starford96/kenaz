@@ -1,6 +1,9 @@
-import { Tabs } from "antd";
+import { lazy, Suspense } from "react";
+import { Tabs, Spin } from "antd";
 import { useUIStore } from "../store/ui";
 import NoteView from "./NoteView";
+
+const GraphView = lazy(() => import("./GraphView"));
 
 /** Tabbed note viewer pane. */
 export default function TabBar() {
@@ -37,7 +40,14 @@ export default function TabBar() {
       items={tabs.map((t) => ({
         key: t.path,
         label: t.title,
-        children: <NoteView path={t.path} />,
+        children:
+          t.path === "__graph__" ? (
+            <Suspense fallback={<Spin style={{ marginTop: 48 }} />}>
+              <GraphView />
+            </Suspense>
+          ) : (
+            <NoteView path={t.path} />
+          ),
         closable: true,
       }))}
     />
