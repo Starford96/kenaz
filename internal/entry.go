@@ -73,6 +73,7 @@ func Run(ctx context.Context, opts ...Option) error {
 
 	// SSE broker.
 	broker := sse.NewBroker(2 * time.Second)
+	defer broker.Close()
 
 	// Build API service and router.
 	svc := api.NewService(store, db)

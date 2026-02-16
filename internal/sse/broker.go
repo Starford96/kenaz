@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sync/atomic"
 	"time"
 )
 
@@ -32,6 +33,10 @@ type Broker struct {
 	publishCh     chan Event
 	noteEventCh   chan noteEventReq
 	countReqCh    chan chan int
+
+	stopCh  chan struct{}
+	stopped chan struct{}
+	closed  atomic.Bool
 }
 
 // NewBroker creates a new SSE broker with the given graph throttle interval.
@@ -47,6 +52,8 @@ func NewBroker(graphThrottle time.Duration) *Broker {
 		publishCh:     make(chan Event, 256),
 		noteEventCh:   make(chan noteEventReq, 256),
 		countReqCh:    make(chan chan int),
+		stopCh:        make(chan struct{}),
+		stopped:       make(chan struct{}),
 	}
 
 	go b.run()
@@ -54,6 +61,8 @@ func NewBroker(graphThrottle time.Duration) *Broker {
 }
 
 func (b *Broker) run() {
+	defer close(b.stopped)
+
 	clients := make(map[chan []byte]struct{})
 	var lastGraph time.Time
 
@@ -76,6 +85,12 @@ func (b *Broker) run() {
 
 	for {
 		select {
+		case <-b.stopCh:
+			for ch := range clients {
+				close(ch)
+			}
+			return
+
 		case ch := <-b.subscribeCh:
 			clients[ch] = struct{}{}
 
@@ -111,33 +126,83 @@ func (b *Broker) run() {
 	}
 }
 
+// Close gracefully stops broker loop and closes all client channels.
+func (b *Broker) Close() {
+	if b.closed.CompareAndSwap(false, true) {
+		close(b.stopCh)
+	}
+	<-b.stopped
+}
+
 // Subscribe adds a new client and returns its channel.
 func (b *Broker) Subscribe() chan []byte {
 	ch := make(chan []byte, 64)
-	b.subscribeCh <- ch
+	if b.closed.Load() {
+		close(ch)
+		return ch
+	}
+
+	select {
+	case b.subscribeCh <- ch:
+	case <-b.stopped:
+		close(ch)
+	}
+
 	return ch
 }
 
 // Unsubscribe removes a client and closes its channel.
 func (b *Broker) Unsubscribe(ch chan []byte) {
-	b.unsubscribeCh <- ch
+	if b.closed.Load() {
+		return
+	}
+	select {
+	case b.unsubscribeCh <- ch:
+	case <-b.stopped:
+	}
 }
 
 // ClientCount returns the number of connected clients.
 func (b *Broker) ClientCount() int {
+	if b.closed.Load() {
+		return 0
+	}
+
 	resp := make(chan int, 1)
-	b.countReqCh <- resp
-	return <-resp
+	select {
+	case b.countReqCh <- resp:
+	case <-b.stopped:
+		return 0
+	}
+
+	select {
+	case n := <-resp:
+		return n
+	case <-b.stopped:
+		return 0
+	}
 }
 
 // Publish sends an event to all connected clients.
 func (b *Broker) Publish(event Event) {
-	b.publishCh <- event
+	if b.closed.Load() {
+		return
+	}
+	select {
+	case b.publishCh <- event:
+	case <-b.stopped:
+	}
 }
 
 // PublishNoteEvent publishes a note change and a throttled graph.updated event.
 func (b *Broker) PublishNoteEvent(kind, path string) {
-	b.noteEventCh <- noteEventReq{kind: kind, path: path}
+	if b.closed.Load() {
+		return
+	}
+	select {
+	case b.noteEventCh <- noteEventReq{kind: kind, path: path}:
+	case <-b.stopped:
+	}
 }
 
 // ServeHTTP is the SSE endpoint handler (GET /api/events).

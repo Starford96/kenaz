@@ -11,6 +11,7 @@ import (
 
 func TestSubscribeUnsubscribe(t *testing.T) {
 	b := NewBroker(100 * time.Millisecond)
+	defer b.Close()
 	if b.ClientCount() != 0 {
 		t.Fatalf("expected 0 clients")
 	}
@@ -26,6 +27,7 @@ func TestSubscribeUnsubscribe(t *testing.T) {
 
 func TestPublishDelivery(t *testing.T) {
 	b := NewBroker(100 * time.Millisecond)
+	defer b.Close()
 	ch := b.Subscribe()
 	defer b.Unsubscribe(ch)
 
@@ -47,6 +49,7 @@ func TestPublishDelivery(t *testing.T) {
 
 func TestPublishNoteEvent_GraphThrottle(t *testing.T) {
 	b := NewBroker(500 * time.Millisecond)
+	defer b.Close()
 	ch := b.Subscribe()
 	defer b.Unsubscribe(ch)
 
@@ -84,6 +87,7 @@ loop:
 
 func TestSSEHandler(t *testing.T) {
 	b := NewBroker(100 * time.Millisecond)
+	defer b.Close()
 
 	// Start handler in background.
 	ctx, cancel := context.WithCancel(context.Background())
@@ -126,6 +130,7 @@ func TestSSEHandler(t *testing.T) {
 
 func TestPublishDropsOnFullBuffer(t *testing.T) {
 	b := NewBroker(time.Second)
+	defer b.Close()
 	ch := b.Subscribe()
 	defer b.Unsubscribe(ch)
 
@@ -134,4 +139,31 @@ func TestPublishDropsOnFullBuffer(t *testing.T) {
 		b.Publish(Event{Type: "test", Data: map[string]string{"i": "x"}})
 	}
 	// If we reach here without deadlock, the test passes.
+}
+
+func TestCloseClosesSubscribersAndStopsOperations(t *testing.T) {
+	b := NewBroker(100 * time.Millisecond)
+	ch := b.Subscribe()
+	if b.ClientCount() != 1 {
+		t.Fatalf("expected 1 client")
+	}
+
+	b.Close()
+
+	select {
+	case _, ok := <-ch:
+		if ok {
+			t.Fatal("expected subscriber channel to be closed")
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timeout waiting for channel close")
+	}
+
+	if b.ClientCount() != 0 {
+		t.Fatalf("expected 0 clients after close")
+	}
+
+	// Should be safe no-op after close.
+	b.Publish(Event{Type: "note.updated", Data: map[string]string{"path": "x.md"}})
+	b.PublishNoteEvent("updated", "x.md")
 }
