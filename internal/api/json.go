@@ -12,7 +12,7 @@ func writeJSON(w http.ResponseWriter, status int, v interface{}) {
 }
 
 type errResponse struct {
-	Error string `json:"error"`
+	Error string `json:"error" validate:"required"`
 }
 
 func errorBody(msg string) errResponse {

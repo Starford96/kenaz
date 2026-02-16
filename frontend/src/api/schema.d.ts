@@ -4,54 +4,55 @@
  */
 
 export interface paths {
-    "/notes": {
+    "/attachments": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** List notes with optional pagination and filtering. */
-        get: operations["listNotes"];
+        get?: never;
         put?: never;
-        /** Create a new note. */
-        post: operations["createNote"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/notes/{path}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
+        /** Upload an attachment file */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "multipart/form-data": {
+                        /**
+                         * Format: binary
+                         * @description File to upload
+                         */
+                        file: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AttachmentUploadResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errResponse"];
+                    };
+                };
+            };
         };
-        /** Get a single note by path. */
-        get: operations["getNote"];
-        /** Update a note (supports optimistic concurrency via If-Match). */
-        put: operations["updateNote"];
-        post?: never;
-        /** Delete a note. */
-        delete: operations["deleteNote"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/search": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Full-text search across notes. */
-        get: operations["searchNotes"];
-        put?: never;
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -65,8 +66,27 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get the knowledge graph (nodes and links). */
-        get: operations["getGraph"];
+        /** Get the knowledge graph */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["GraphResponse"];
+                    };
+                };
+            };
+        };
         put?: never;
         post?: never;
         delete?: never;
@@ -75,17 +95,274 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/attachments": {
+    "/notes": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** List notes with optional pagination and filtering */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Page size */
+                    limit?: number;
+                    /** @description Page offset */
+                    offset?: number;
+                    /** @description Filter by tag */
+                    tag?: string;
+                    /** @description Sort field */
+                    sort?: "updated_at" | "title" | "path";
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["NoteListResponse"];
+                    };
+                };
+            };
+        };
         put?: never;
-        /** Upload an attachment file. */
-        post: operations["uploadAttachment"];
+        /** Create a new note */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Note to create */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateNoteRequest"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["NoteDetail"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errResponse"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notes/{path}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a single note by path */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Note path */
+                    path: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["NoteDetail"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errResponse"];
+                    };
+                };
+            };
+        };
+        /** Update a note with optimistic concurrency */
+        put: {
+            parameters: {
+                query?: never;
+                header?: {
+                    /** @description SHA-256 checksum for optimistic concurrency */
+                    "If-Match"?: string;
+                };
+                path: {
+                    /** @description Note path */
+                    path: string;
+                };
+                cookie?: never;
+            };
+            /** @description Updated content */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdateNoteRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["NoteDetail"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errResponse"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errResponse"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        /** Delete a note */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Note path */
+                    path: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Note deleted */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["errResponse"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Full-text search across notes */
+        get: {
+            parameters: {
+                query: {
+                    /** @description Search query */
+                    q: string;
+                    /** @description Max results */
+                    limit?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SearchResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -96,306 +373,90 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        ErrorResponse: {
-            error: string;
+        AttachmentUploadResponse: {
+            /** @example image.png */
+            filename: string;
+            /** @example 12345 */
+            size: number;
+            /** @example /attachments/image.png */
+            url: string;
         };
-        NoteListItem: {
+        CreateNoteRequest: {
+            /**
+             * @example # Hello
+             *     World
+             */
+            content: string;
+            /** @example notes/hello.md */
             path: string;
-            title: string;
-            checksum: string;
-            tags: string[];
-            /** Format: date-time */
-            updated_at: string;
+        };
+        GraphLink: {
+            /** @example notes/hello.md */
+            source: string;
+            /** @example notes/world.md */
+            target: string;
+        };
+        GraphNode: {
+            /** @example notes/hello.md */
+            id: string;
+            /** @example Hello */
+            title?: string;
+        };
+        GraphResponse: {
+            links: components["schemas"]["GraphLink"][];
+            nodes: components["schemas"]["GraphNode"][];
         };
         NoteDetail: {
-            path: string;
-            title: string;
-            content: string;
+            backlinks: string[];
             checksum: string;
-            tags: string[];
+            content: string;
             frontmatter?: {
                 [key: string]: unknown;
-            } | null;
-            backlinks: string[];
-            /** Format: date-time */
+            };
+            path: string;
+            tags: string[];
+            title: string;
+            updated_at: string;
+        };
+        NoteListItem: {
+            checksum: string;
+            path: string;
+            tags: string[];
+            title: string;
             updated_at: string;
         };
         NoteListResponse: {
             notes: components["schemas"]["NoteListItem"][];
+            /** @example 42 */
             total: number;
-        };
-        CreateNoteRequest: {
-            path: string;
-            content: string;
-        };
-        UpdateNoteRequest: {
-            content: string;
-        };
-        SearchResult: {
-            path: string;
-            title: string;
-            snippet: string;
         };
         SearchResponse: {
             results: components["schemas"]["SearchResult"][];
         };
-        GraphNode: {
-            id: string;
-            title?: string;
+        SearchResult: {
+            /** @example notes/hello.md */
+            path: string;
+            /** @example ...matched text... */
+            snippet: string;
+            /** @example Hello */
+            title: string;
         };
-        GraphLink: {
-            source: string;
-            target: string;
+        UpdateNoteRequest: {
+            /**
+             * @example # Updated
+             *     Content
+             */
+            content: string;
         };
-        GraphResponse: {
-            nodes: components["schemas"]["GraphNode"][];
-            links: components["schemas"]["GraphLink"][];
-        };
-        AttachmentResponse: {
-            filename: string;
-            size: number;
-            url: string;
-        };
-    };
-    responses: {
-        /** @description Bad request. */
-        BadRequest: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["ErrorResponse"];
-            };
-        };
-        /** @description Resource not found. */
-        NotFound: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["ErrorResponse"];
-            };
-        };
-        /** @description Conflict (duplicate or checksum mismatch). */
-        Conflict: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["ErrorResponse"];
-            };
+        errResponse: {
+            error: string;
         };
     };
-    parameters: {
-        /** @description Relative path to the note (e.g. folder/note.md). */
-        NotePath: string;
-    };
+    responses: never;
+    parameters: never;
     requestBodies: never;
     headers: never;
     pathItems: never;
 }
 export type $defs = Record<string, never>;
-export interface operations {
-    listNotes: {
-        parameters: {
-            query?: {
-                limit?: number;
-                offset?: number;
-                tag?: string;
-                sort?: "updated_at" | "title" | "path";
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Paginated list of notes. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NoteListResponse"];
-                };
-            };
-        };
-    };
-    createNote: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateNoteRequest"];
-            };
-        };
-        responses: {
-            /** @description Note created. */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NoteDetail"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            409: components["responses"]["Conflict"];
-        };
-    };
-    getNote: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Relative path to the note (e.g. folder/note.md). */
-                path: components["parameters"]["NotePath"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Note detail. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NoteDetail"];
-                };
-            };
-            404: components["responses"]["NotFound"];
-        };
-    };
-    updateNote: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description SHA-256 checksum for optimistic concurrency control. */
-                "If-Match"?: string;
-            };
-            path: {
-                /** @description Relative path to the note (e.g. folder/note.md). */
-                path: components["parameters"]["NotePath"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateNoteRequest"];
-            };
-        };
-        responses: {
-            /** @description Note updated. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NoteDetail"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-        };
-    };
-    deleteNote: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Relative path to the note (e.g. folder/note.md). */
-                path: components["parameters"]["NotePath"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Note deleted. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            404: components["responses"]["NotFound"];
-        };
-    };
-    searchNotes: {
-        parameters: {
-            query: {
-                q: string;
-                limit?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Search results. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SearchResponse"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-        };
-    };
-    getGraph: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Graph data. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GraphResponse"];
-                };
-            };
-        };
-    };
-    uploadAttachment: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "multipart/form-data": {
-                    /** Format: binary */
-                    file: string;
-                };
-            };
-        };
-        responses: {
-            /** @description Attachment uploaded. */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AttachmentResponse"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-        };
-    };
-}
+export type operations = Record<string, never>;

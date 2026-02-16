@@ -64,13 +64,15 @@
 - `npm run build` passes (tsc + vite)
 
 ### API Contract Generation ✅
-- OpenAPI 3.1 spec at `api/schema/kenaz/openapi.yaml` covering all endpoints
+- OpenAPI 3.1 spec at `api/schema/kenaz/openapi.yaml` **generated from backend code**
+- `swaggo/swag` v1.16.4 annotations on all handlers and named DTOs in `internal/api/`
+- Swagger 2.0 → OpenAPI 3.1 conversion via `scripts/swagger2openapi.mjs`
+- `make openapi` runs swag + conversion pipeline
+- `make openapi-check` drift guard: fails if generated spec differs from committed
 - `openapi-typescript` generates `frontend/src/api/schema.d.ts` from spec
-- `openapi-fetch` replaces axios as typed, spec-driven fetch client
-- Hand-written types removed; all frontend types flow from OpenAPI spec
-- `make openapi` / `make client-gen` for deterministic regeneration
-- `npm run generate` script in frontend/package.json
-- Bundle size reduced (axios removed: 888KB → 858KB)
+- `openapi-fetch` typed, spec-driven fetch client
+- `make client-gen` chains `openapi` → frontend type generation
+- All frontend types flow from backend annotations (single source of truth)
 
 ## Remaining
 

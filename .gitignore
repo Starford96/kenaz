@@ -47,3 +47,6 @@ frontend/dist/
 # OS
 .DS_Store
 Thumbs.db
+
+# Swag intermediate output
+api/schema/kenaz/swag/

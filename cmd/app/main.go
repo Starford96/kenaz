@@ -75,6 +75,13 @@ var configFlag = &cli.StringFlag{
 	Sources:     cli.EnvVars("APP_CONFIG_FILE"),
 }
 
+//	@title			Kenaz API
+//	@version		1.0.0
+//	@description	Local-first knowledge base with Markdown storage, full-text search, and graph visualization.
+//	@BasePath		/api
+//	@securityDefinitions.apikey	BearerAuth
+//	@in							header
+//	@name						Authorization
 func main() {
 	cmd := &cli.Command{
 		Name:   "kenaz",

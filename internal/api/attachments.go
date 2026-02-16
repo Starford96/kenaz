@@ -66,6 +66,16 @@ func (h *AttachmentHandler) ServeFile(w http.ResponseWriter, r *http.Request) {
 }
 
 // Upload handles POST /api/attachments (multipart/form-data, field "file").
+//
+//	@Summary		Upload an attachment file
+//	@Tags			attachments
+//	@Accept			multipart/form-data
+//	@Produce		json
+//	@Param			file	formData	file	true	"File to upload"
+//	@Success		201		{object}	AttachmentUploadResponse
+//	@Failure		400		{object}	errResponse
+//	@Security		BearerAuth
+//	@Router			/attachments [post]
 func (h *AttachmentHandler) Upload(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxUploadBytes)
 

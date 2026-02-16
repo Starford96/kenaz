@@ -6,7 +6,7 @@ LDFLAGS=-ldflags "-s -w -X main.Version=$(VERSION)"
 BUILD_FLAGS=-trimpath -installsuffix cgo -tags sqlite_fts5
 LINT_BIN_PATH?=$(shell go env GOPATH)/bin
 
-.PHONY: build build-linux run test clean docker-build docker-up docker-down docker-logs fmt lint install-lint deps help openapi client-gen frontend-build
+.PHONY: build build-linux run test clean docker-build docker-up docker-down docker-logs fmt lint install-lint deps help openapi openapi-check client-gen frontend-build
 
 # Build for Linux (Docker).
 build-linux:
@@ -81,10 +81,17 @@ lint:
 	fi
 
 # Generate TypeScript types from OpenAPI spec.
-openapi: client-gen
+# Generate OpenAPI 3.1 spec from backend swag annotations.
+openapi:
+	$(shell go env GOPATH)/bin/swag init -g cmd/app/main.go -o api/schema/kenaz/swag --outputTypes json --quiet
+	node scripts/swagger2openapi.mjs api/schema/kenaz/swag/swagger.json api/schema/kenaz/openapi.yaml
+
+# Drift check: regenerate and fail if spec changed.
+openapi-check: openapi
+	@git diff --exit-code api/schema/kenaz/openapi.yaml || (echo "ERROR: openapi.yaml is out of date — run 'make openapi' and commit" && exit 1)
 
 # Generate typed frontend client from OpenAPI spec.
-client-gen:
+client-gen: openapi
 	cd frontend && npm run generate
 
 # Build the frontend.
@@ -107,7 +114,8 @@ help:
 	@echo "  docker-down   - Stop containers"
 	@echo "  docker-logs   - View logs"
 	@echo "  deps          - Download and tidy dependencies"
-	@echo "  openapi       - Generate TypeScript types from OpenAPI spec"
-	@echo "  client-gen    - Generate typed frontend client"
+	@echo "  openapi       - Generate OpenAPI 3.1 spec from backend annotations"
+	@echo "  openapi-check - Drift check: fail if spec is out of date"
+	@echo "  client-gen    - Generate typed frontend client from OpenAPI spec"
 	@echo "  frontend-build - Build frontend"
 	@echo "  help          - Show this help"

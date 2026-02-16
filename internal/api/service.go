@@ -24,23 +24,23 @@ func NewService(store storage.Provider, db *index.DB) *Service {
 
 // NoteDetail is the response payload for a single note.
 type NoteDetail struct {
-	Path        string                 `json:"path"`
-	Title       string                 `json:"title"`
-	Content     string                 `json:"content"`
-	Checksum    string                 `json:"checksum"`
-	Tags        []string               `json:"tags"`
+	Path        string                 `json:"path" validate:"required"`
+	Title       string                 `json:"title" validate:"required"`
+	Content     string                 `json:"content" validate:"required"`
+	Checksum    string                 `json:"checksum" validate:"required"`
+	Tags        []string               `json:"tags" validate:"required"`
 	Frontmatter map[string]interface{} `json:"frontmatter,omitempty"`
-	Backlinks   []string               `json:"backlinks"`
-	UpdatedAt   time.Time              `json:"updated_at"`
+	Backlinks   []string               `json:"backlinks" validate:"required"`
+	UpdatedAt   time.Time              `json:"updated_at" validate:"required"`
 }
 
 // NoteListItem is a lightweight item in a list response.
 type NoteListItem struct {
-	Path      string   `json:"path"`
-	Title     string   `json:"title"`
-	Checksum  string   `json:"checksum"`
-	Tags      []string `json:"tags"`
-	UpdatedAt time.Time `json:"updated_at"`
+	Path      string    `json:"path" validate:"required"`
+	Title     string    `json:"title" validate:"required"`
+	Checksum  string    `json:"checksum" validate:"required"`
+	Tags      []string  `json:"tags" validate:"required"`
+	UpdatedAt time.Time `json:"updated_at" validate:"required"`
 }
 
 // GetNote reads a note from storage, parses it, and enriches with backlinks.
