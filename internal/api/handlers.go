@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -21,8 +22,17 @@ func NewHandler(svc *Service) *Handler {
 }
 
 // notePath extracts the note path from the URL (everything after /api/notes/).
+// Supports encoded slashes from OpenAPI clients (e.g. topics%2Fnote.md).
 func notePath(r *http.Request) string {
-	return strings.TrimPrefix(chi.URLParam(r, "*"), "/")
+	raw := strings.TrimPrefix(chi.URLParam(r, "*"), "/")
+	if raw == "" {
+		return ""
+	}
+	decoded, err := url.PathUnescape(raw)
+	if err != nil {
+		return raw
+	}
+	return decoded
 }
 
 // ListNotes handles GET /api/notes.
