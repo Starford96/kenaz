@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"sync"
 	"time"
 )
 
@@ -15,14 +14,24 @@ type Event struct {
 	Data interface{} `json:"data"`
 }
 
-// Broker manages SSE client connections and broadcasts events.
-type Broker struct {
-	mu      sync.RWMutex
-	clients map[chan []byte]struct{}
+type noteEventReq struct {
+	kind string
+	path string
+}
 
-	// Graph throttle.
-	lastGraph time.Time
-	graphMin  time.Duration
+// Broker manages SSE client connections and broadcasts events.
+//
+// Concurrency model: a single internal event loop (goroutine) owns mutable state
+// (clients + graph throttle timestamp). Public methods communicate with this loop
+// through channels, so no mutexes are required.
+type Broker struct {
+	graphMin time.Duration
+
+	subscribeCh   chan chan []byte
+	unsubscribeCh chan chan []byte
+	publishCh     chan Event
+	noteEventCh   chan noteEventReq
+	countReqCh    chan chan int
 }
 
 // NewBroker creates a new SSE broker with the given graph throttle interval.
@@ -30,79 +39,105 @@ func NewBroker(graphThrottle time.Duration) *Broker {
 	if graphThrottle <= 0 {
 		graphThrottle = 2 * time.Second
 	}
-	return &Broker{
-		clients:  make(map[chan []byte]struct{}),
-		graphMin: graphThrottle,
+
+	b := &Broker{
+		graphMin:       graphThrottle,
+		subscribeCh:   make(chan chan []byte),
+		unsubscribeCh: make(chan chan []byte),
+		publishCh:     make(chan Event, 256),
+		noteEventCh:   make(chan noteEventReq, 256),
+		countReqCh:    make(chan chan int),
+	}
+
+	go b.run()
+	return b
+}
+
+func (b *Broker) run() {
+	clients := make(map[chan []byte]struct{})
+	var lastGraph time.Time
+
+	broadcast := func(event Event) {
+		payload, err := json.Marshal(event.Data)
+		if err != nil {
+			return
+		}
+		msg := fmt.Sprintf("event: %s\ndata: %s\n\n", event.Type, payload)
+		raw := []byte(msg)
+
+		for ch := range clients {
+			select {
+			case ch <- raw:
+			default:
+				// Client buffer full; skip to avoid blocking broker loop.
+			}
+		}
+	}
+
+	for {
+		select {
+		case ch := <-b.subscribeCh:
+			clients[ch] = struct{}{}
+
+		case ch := <-b.unsubscribeCh:
+			if _, ok := clients[ch]; ok {
+				delete(clients, ch)
+				close(ch)
+			}
+
+		case event := <-b.publishCh:
+			broadcast(event)
+
+		case req := <-b.noteEventCh:
+			data := map[string]string{"path": req.path}
+			switch req.kind {
+			case "created":
+				broadcast(Event{Type: "note.created", Data: data})
+			case "updated":
+				broadcast(Event{Type: "note.updated", Data: data})
+			case "deleted":
+				broadcast(Event{Type: "note.deleted", Data: data})
+			}
+
+			now := time.Now()
+			if now.Sub(lastGraph) >= b.graphMin {
+				lastGraph = now
+				broadcast(Event{Type: "graph.updated", Data: map[string]string{}})
+			}
+
+		case resp := <-b.countReqCh:
+			resp <- len(clients)
+		}
 	}
 }
 
 // Subscribe adds a new client and returns its channel.
 func (b *Broker) Subscribe() chan []byte {
 	ch := make(chan []byte, 64)
-	b.mu.Lock()
-	b.clients[ch] = struct{}{}
-	b.mu.Unlock()
+	b.subscribeCh <- ch
 	return ch
 }
 
 // Unsubscribe removes a client and closes its channel.
 func (b *Broker) Unsubscribe(ch chan []byte) {
-	b.mu.Lock()
-	delete(b.clients, ch)
-	b.mu.Unlock()
-	close(ch)
+	b.unsubscribeCh <- ch
 }
 
 // ClientCount returns the number of connected clients.
 func (b *Broker) ClientCount() int {
-	b.mu.RLock()
-	defer b.mu.RUnlock()
-	return len(b.clients)
+	resp := make(chan int, 1)
+	b.countReqCh <- resp
+	return <-resp
 }
 
 // Publish sends an event to all connected clients.
 func (b *Broker) Publish(event Event) {
-	payload, err := json.Marshal(event.Data)
-	if err != nil {
-		return
-	}
-	msg := fmt.Sprintf("event: %s\ndata: %s\n\n", event.Type, payload)
-	raw := []byte(msg)
-
-	b.mu.RLock()
-	defer b.mu.RUnlock()
-	for ch := range b.clients {
-		select {
-		case ch <- raw:
-		default:
-			// Client buffer full; skip to avoid blocking.
-		}
-	}
+	b.publishCh <- event
 }
 
 // PublishNoteEvent publishes a note change and a throttled graph.updated event.
 func (b *Broker) PublishNoteEvent(kind, path string) {
-	data := map[string]string{"path": path}
-
-	switch kind {
-	case "created":
-		b.Publish(Event{Type: "note.created", Data: data})
-	case "updated":
-		b.Publish(Event{Type: "note.updated", Data: data})
-	case "deleted":
-		b.Publish(Event{Type: "note.deleted", Data: data})
-	}
-
-	// Throttle graph.updated.
-	b.mu.Lock()
-	now := time.Now()
-	if now.Sub(b.lastGraph) >= b.graphMin {
-		b.lastGraph = now
-		b.mu.Unlock()
-		b.Publish(Event{Type: "graph.updated", Data: map[string]string{}})
-	} else {
-		b.mu.Unlock()
-	}
+	b.noteEventCh <- noteEventReq{kind: kind, path: path}
 }
 
 // ServeHTTP is the SSE endpoint handler (GET /api/events).
