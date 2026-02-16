@@ -1,0 +1,71 @@
+# AGENTS.md — Kenaz Development Rules
+
+This file defines execution rules for AI agents working on this repository.
+
+## Core Workflow
+
+1. **Plan first, then implement**
+   - Produce a short implementation plan before coding.
+   - Apply changes in small, reviewable batches.
+
+2. **No commit/push without explicit approval**
+   - Agents may edit files and run local checks.
+   - `git commit` and especially `git push` require explicit user confirmation.
+
+3. **Keep changes minimal and scoped**
+   - Do not perform unrelated refactors.
+   - Do not change files outside the requested scope unless necessary for build/test correctness.
+
+## Code Quality Gates (before reporting completion)
+
+Run and report:
+
+- `go test ./...`
+- project lint/format commands if available (`make lint`, `make fmt`)
+- placeholder check when template-derived files are involved:
+  - `grep -R "{{" --include="*.go" --include="*.yaml" --include="*.yml" .`
+
+If any command cannot run, explain why and provide the exact blocker.
+
+## Git Conventions
+
+### Commit Messages
+
+Format:
+
+`<type>[scope]: <description>`
+
+- `type` (required): one of
+  - `breaking`, `build`, `ci`, `chore`, `docs`, `feat`, `fix`, `perf`, `refactor`, `revert`, `style`, `test`, `improvement`
+- `scope` (optional): component or area affected
+- `description` (required): concise summary in imperative mood
+
+Examples:
+
+- `feat(authorization): implement RBAC architecture`
+- `fix(repository): correct pagination cursor handling`
+- `refactor: simplify config loading`
+- `docs: update API usage examples`
+
+## Documentation Language Policy
+
+All documentation in this repository must be written in **English only**.
+
+This includes (non-exhaustive):
+
+- `README.md`
+- `docs/**/*.md`
+- architecture notes
+- API documentation
+- agent-generated documentation artifacts
+
+## Reporting Format
+
+When finishing a batch, provide:
+
+1. Files changed
+2. What was implemented
+3. Validation results (tests/lint/checks)
+4. Open risks or follow-up items
+
+Keep reports concise and actionable.
