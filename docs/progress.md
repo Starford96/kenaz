@@ -41,16 +41,23 @@ Project is in active backend implementation.
 
 ## Next Planned Batch
 
-### Batch 4 — REST API (Spec 03)
+### Batch 5 — Realtime + MCP (Specs 04 & 05)
 
 Planned scope:
-- Chi routes for notes CRUD
-- Search endpoint
-- Graph endpoint
-- Bearer auth middleware
-- Optimistic concurrency via `If-Match`
+- SSE broker and `/api/events`
+- Event flow from watcher/index updates
+- MCP server tools (`search_notes`, `read_note`, `create_note`, `list_notes`, `get_backlinks`)
 
 ## Backlog
 
-- Batch 5: Realtime updates (SSE) and MCP server integration
 - Frontend implementation according to Spec 06
+
+## Latest Update
+
+6. **Batch 4 — REST API (Spec 03)**
+   - Notes CRUD endpoints implemented.
+   - Search and graph endpoints implemented.
+   - Bearer auth middleware added (disabled when token is empty).
+   - Optimistic concurrency support via `If-Match` checksum.
+   - API integration tests added.
+   - Commit: `8ca3cef`
