@@ -31,6 +31,7 @@ func New(store storage.Provider, db *index.DB) *Server {
 		"Kenaz",
 		"1.0.0",
 		server.WithToolCapabilities(false),
+		server.WithResourceCapabilities(false, false),
 	)
 
 	s.mcp.AddTool(mcp.NewTool("search_notes",
@@ -44,10 +45,18 @@ func New(store storage.Provider, db *index.DB) *Server {
 	), s.readNote)
 
 	s.mcp.AddTool(mcp.NewTool("create_note",
-		mcp.WithDescription("Create a new Markdown note at the specified path."),
-		mcp.WithString("path", mcp.Required(), mcp.Description("Relative path for the new note")),
-		mcp.WithString("content", mcp.Required(), mcp.Description("Markdown content of the note")),
+		mcp.WithDescription("Create a new Markdown note at the specified path. "+
+			"Content MUST follow the canonical note format (YAML frontmatter with title, "+
+			"optional tags, Markdown body with [[wikilinks]]). Read the contract first via "+
+			"the get_note_contract tool or the kenaz://note-format resource."),
+		mcp.WithString("path", mcp.Required(), mcp.Description("Relative path for the new note (must end with .md)")),
+		mcp.WithString("content", mcp.Required(), mcp.Description("Markdown content following the Kenaz note format contract")),
 	), s.createNote)
+
+	s.mcp.AddTool(mcp.NewTool("get_note_contract",
+		mcp.WithDescription("Returns the canonical Kenaz note format contract. "+
+			"Call this before creating or updating notes to ensure correct structure."),
+	), s.getNoteContract)
 
 	s.mcp.AddTool(mcp.NewTool("list_notes",
 		mcp.WithDescription("List all notes or notes in a specific folder."),
@@ -58,6 +67,15 @@ func New(store storage.Provider, db *index.DB) *Server {
 		mcp.WithDescription("Find all notes that link to the specified note."),
 		mcp.WithString("path", mcp.Required(), mcp.Description("Path of the note to find backlinks for")),
 	), s.getBacklinks)
+
+	// Resource: note format contract.
+	s.mcp.AddResource(
+		mcp.NewResource("kenaz://note-format", "Note Format Contract",
+			mcp.WithResourceDescription("Canonical Markdown note format that all notes must follow."),
+			mcp.WithMIMEType("text/markdown"),
+		),
+		s.readNoteFormatResource,
+	)
 
 	return s
 }
@@ -151,6 +169,20 @@ func (s *Server) listNotes(ctx context.Context, req mcp.CallToolRequest) (*mcp.C
 		paths = append(paths, m.Path)
 	}
 	return mcp.NewToolResultText(strings.Join(paths, "\n")), nil
+}
+
+func (s *Server) getNoteContract(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	return mcp.NewToolResultText(NoteFormatContract), nil
+}
+
+func (s *Server) readNoteFormatResource(ctx context.Context, req mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
+	return []mcp.ResourceContents{
+		mcp.TextResourceContents{
+			URI:      "kenaz://note-format",
+			MIMEType: "text/markdown",
+			Text:     NoteFormatContract,
+		},
+	}, nil
 }
 
 func (s *Server) getBacklinks(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {

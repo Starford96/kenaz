@@ -3,6 +3,7 @@ package mcpserver
 import (
 	"context"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/mark3labs/mcp-go/mcp"
@@ -62,6 +63,8 @@ func callTool(t *testing.T, srv *Server, name string, args map[string]interface{
 		result, err = srv.listNotes(ctx, req)
 	case "get_backlinks":
 		result, err = srv.getBacklinks(ctx, req)
+	case "get_note_contract":
+		result, err = srv.getNoteContract(ctx, req)
 	default:
 		t.Fatalf("unknown tool: %s", name)
 	}
@@ -119,6 +122,49 @@ func TestReadNoteMissing(t *testing.T) {
 	r := callTool(t, srv, "read_note", map[string]interface{}{"path": "nope.md"})
 	if !r.IsError {
 		t.Error("expected error for missing note")
+	}
+}
+
+func TestGetNoteContract(t *testing.T) {
+	srv, _ := testServer(t)
+	r := callTool(t, srv, "get_note_contract", map[string]interface{}{})
+	text := resultText(r)
+	if text == "" {
+		t.Fatal("contract is empty")
+	}
+	if !strings.Contains(text, "YAML frontmatter is mandatory") {
+		t.Error("contract missing expected content")
+	}
+	if !strings.Contains(text, "[[wikilinks]]") {
+		t.Error("contract missing wikilink guidance")
+	}
+}
+
+func TestReadNoteFormatResource(t *testing.T) {
+	srv, _ := testServer(t)
+	ctx := context.Background()
+	req := mcp.ReadResourceRequest{}
+	req.Params.URI = "kenaz://note-format"
+
+	contents, err := srv.readNoteFormatResource(ctx, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(contents) != 1 {
+		t.Fatalf("expected 1 content, got %d", len(contents))
+	}
+	tc, ok := contents[0].(mcp.TextResourceContents)
+	if !ok {
+		t.Fatal("expected TextResourceContents")
+	}
+	if tc.URI != "kenaz://note-format" {
+		t.Errorf("URI = %q", tc.URI)
+	}
+	if tc.MIMEType != "text/markdown" {
+		t.Errorf("MIMEType = %q", tc.MIMEType)
+	}
+	if !strings.Contains(tc.Text, "title") {
+		t.Error("resource text missing 'title'")
 	}
 }
 

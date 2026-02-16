@@ -108,6 +108,14 @@
 - Expanded MCP spec with concrete tool payload examples
 - Linked note format contract from README and AGENTS rules
 
+### MCP Consumer Guidance ✅
+- Note format contract constant in `internal/mcpserver/contract.go`
+- MCP resource `kenaz://note-format` exposing the contract as text/markdown
+- `get_note_contract` tool returning the contract text for LLM consumers
+- `create_note` tool description updated to require canonical format and reference contract
+- Resource registered with `WithResourceCapabilities` on the MCP server
+- Tests: contract tool returns expected content, resource handler returns correct URI/MIME/text
+
 ## Remaining
 
 ### Future Enhancements
