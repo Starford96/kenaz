@@ -114,7 +114,19 @@ export default function NoteView({ path }: Props) {
 
   if (isLoading) return <Spin style={{ marginTop: 48 }} />;
   if (error || !note)
-    return <Text type="danger">Failed to load {path}</Text>;
+    return (
+      <div style={{ padding: 24, textAlign: "center", marginTop: 48 }}>
+        <Text type="danger">Failed to load {path}</Text>
+        <br />
+        <Button
+          size="small"
+          style={{ marginTop: 8 }}
+          onClick={() => useUIStore.getState().closeTab(path)}
+        >
+          Close tab
+        </Button>
+      </div>
+    );
 
   // Simple wikilink rendering: replace [[target]] and [[target|alias]].
   const renderContent = (raw: string) => {
@@ -194,8 +206,8 @@ export default function NoteView({ path }: Props) {
             notePaths={getNotePaths}
           />
         ) : (
-          <div style={{ padding: "16px 24px", maxWidth: 800 }}>
-            <Paragraph style={{ whiteSpace: "pre-wrap", lineHeight: 1.8 }}>
+          <div className="md-preview" style={{ padding: "16px 24px", maxWidth: 800 }}>
+            <Paragraph style={{ whiteSpace: "pre-wrap" }}>
               {renderContent(note.content)}
             </Paragraph>
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Input, Tree, Typography, Spin, Space, Button } from "antd";
 import {
@@ -59,6 +59,13 @@ function buildTree(notes: NoteListItem[]): DataNode[] {
 export default function Sidebar() {
   const { openTab, setSearchOpen } = useUIStore();
   const [createOpen, setCreateOpen] = useState(false);
+
+  // Listen for create-note command from palette.
+  useEffect(() => {
+    const handler = () => setCreateOpen(true);
+    window.addEventListener("kenaz:create-note", handler);
+    return () => window.removeEventListener("kenaz:create-note", handler);
+  }, []);
 
   const { data, isLoading } = useQuery({
     queryKey: ["notes"],

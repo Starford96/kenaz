@@ -90,6 +90,18 @@
 - Attachment upload via paste/drag in editor: inserts placeholder during upload, replaces with `![name](url)` on success
 - Custom autocomplete tooltip styling matching dark theme
 
+### FE-3A — Tab Persistence, Command Palette & Typography ✅
+- Tab persistence via zustand `persist` middleware (localStorage key `kenaz-ui`)
+- Sidebar collapsed and context panel state also persisted across sessions
+- Stale/deleted note tabs show error state with close button
+- Command palette (Cmd/Ctrl+K) with mixed items: files (FTS search) + commands (New Note, Open Graph, Toggle Sidebar, Toggle Context Panel)
+- Icons per item kind, keyboard navigation, spotlight-style dark modal with footer hints
+- "New Note" command dispatches custom event to open create modal from sidebar
+- Empty-query palette shows commands + recent notes for quick access
+- Markdown preview typography: headers with border-bottom, blockquotes with purple left border, styled code blocks (inline + fenced), lists with muted markers, tables, HR, images, links
+- `.md-preview` CSS class applied to read-mode note content
+- Editor and preview share consistent line-height rhythm (1.75)
+
 ## Remaining
 
 ### Future Enhancements
