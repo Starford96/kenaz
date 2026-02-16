@@ -4,12 +4,16 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/starford/kenaz/internal/index"
 	"github.com/starford/kenaz/internal/storage"
 )
@@ -23,6 +27,12 @@ func testEnv(t *testing.T, authToken string) (*Service, http.Handler) {
 }
 
 func testEnvFull(t *testing.T, authEnabled bool, authToken string) (*Service, http.Handler) {
+	t.Helper()
+	svc, router, _ := testEnvWithVault(t, authEnabled, authToken)
+	return svc, router
+}
+
+func testEnvWithVault(t *testing.T, authEnabled bool, authToken string) (*Service, http.Handler, string) {
 	t.Helper()
 
 	vaultDir := t.TempDir()
@@ -45,8 +55,8 @@ func testEnvFull(t *testing.T, authEnabled bool, authToken string) (*Service, ht
 	t.Cleanup(func() { db.Close() })
 
 	svc := NewService(store, db)
-	router := NewRouter(svc, authEnabled, authToken, nil)
-	return svc, router
+	router := NewRouter(svc, authEnabled, authToken, nil, vaultDir)
+	return svc, router, vaultDir
 }
 
 func TestCreateAndGetNote(t *testing.T) {
@@ -408,6 +418,130 @@ func testEnvWithSSE(t *testing.T, authEnabled bool, token string) (*Service, htt
 		<-r.Context().Done()
 	})
 
-	router := NewRouter(svc, authEnabled, token, sseHandler)
+	router := NewRouter(svc, authEnabled, token, sseHandler, vaultDir)
 	return svc, router
+}
+
+// Attachment tests.
+
+func uploadFile(t *testing.T, router http.Handler, filename string, content []byte) *httptest.ResponseRecorder {
+	t.Helper()
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+	part, err := mw.CreateFormFile("file", filename)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _ = io.Copy(part, bytes.NewReader(content))
+	mw.Close()
+
+	req := httptest.NewRequest(http.MethodPost, "/attachments", &buf)
+	req.Header.Set("Content-Type", mw.FormDataContentType())
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	return w
+}
+
+func TestUploadAndServeAttachment(t *testing.T) {
+	_, router, vaultDir := testEnvWithVault(t, false, "")
+
+	// Upload.
+	w := uploadFile(t, router, "test.png", []byte("fake-png-data"))
+	if w.Code != http.StatusCreated {
+		t.Fatalf("upload = %d, body = %s", w.Code, w.Body.String())
+	}
+	var resp map[string]interface{}
+	_ = json.Unmarshal(w.Body.Bytes(), &resp)
+	if resp["filename"] != "test.png" {
+		t.Errorf("filename = %v", resp["filename"])
+	}
+
+	// Verify file on disk.
+	data, err := os.ReadFile(filepath.Join(vaultDir, "attachments", "test.png"))
+	if err != nil {
+		t.Fatalf("file not on disk: %v", err)
+	}
+	if string(data) != "fake-png-data" {
+		t.Errorf("content mismatch")
+	}
+}
+
+func TestServeAttachment_NotFound(t *testing.T) {
+	ah := NewAttachmentHandler(t.TempDir())
+	req := httptest.NewRequest(http.MethodGet, "/attachments/nope.png", nil)
+
+	// chi URL params need a router context; test the handler directly with a
+	// chi router to get proper URL param extraction.
+	r := chi.NewRouter()
+	r.Get("/attachments/{filename}", ah.ServeFile)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusNotFound {
+		t.Errorf("missing attachment = %d, want 404", w.Code)
+	}
+}
+
+func TestServeAttachment_TraversalBlocked(t *testing.T) {
+	ah := NewAttachmentHandler(t.TempDir())
+	r := chi.NewRouter()
+	r.Get("/attachments/{filename}", ah.ServeFile)
+
+	for _, name := range []string{"../secret.md", "../../etc/passwd"} {
+		req := httptest.NewRequest(http.MethodGet, "/attachments/"+name, nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		// chi may not route the traversal paths at all (404), or our handler rejects (400).
+		if w.Code == http.StatusOK {
+			t.Errorf("traversal %q should not return 200", name)
+		}
+	}
+}
+
+func TestUploadAttachment_InvalidFilename(t *testing.T) {
+	_, router, vaultDir := testEnvWithVault(t, false, "")
+	// multipart headers may clean "../" so we also verify file doesn't land outside.
+	w := uploadFile(t, router, "../escape.txt", []byte("bad"))
+	// Either rejected (400) or the cleaned name lands safely inside attachments.
+	if w.Code == http.StatusCreated {
+		// Verify no file outside vault.
+		if _, err := os.Stat(filepath.Join(vaultDir, "..", "escape.txt")); err == nil {
+			t.Error("file escaped vault directory")
+		}
+	}
+}
+
+func TestUploadAttachment_AuthProtected(t *testing.T) {
+	_, router, _ := testEnvWithVault(t, true, "secret")
+
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+	part, _ := mw.CreateFormFile("file", "x.png")
+	_, _ = part.Write([]byte("data"))
+	mw.Close()
+
+	// No token → 401.
+	req := httptest.NewRequest(http.MethodPost, "/attachments", &buf)
+	req.Header.Set("Content-Type", mw.FormDataContentType())
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("upload no auth = %d, want 401", w.Code)
+	}
+}
+
+func TestUploadAttachment_MissingFileField(t *testing.T) {
+	_, router, _ := testEnvWithVault(t, false, "")
+
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+	_ = mw.WriteField("wrong", "data")
+	mw.Close()
+
+	req := httptest.NewRequest(http.MethodPost, "/attachments", &buf)
+	req.Header.Set("Content-Type", mw.FormDataContentType())
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("missing field = %d, want 400", w.Code)
+	}
 }

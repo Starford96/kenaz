@@ -9,8 +9,10 @@ import (
 // NewRouter creates a chi router with all API routes mounted.
 // authEnabled controls whether Bearer token auth is enforced.
 // sseHandler, if non-nil, is mounted at GET /events inside the auth group.
-func NewRouter(svc *Service, authEnabled bool, token string, sseHandler http.Handler) chi.Router {
+// vaultRoot is used to resolve the attachments directory.
+func NewRouter(svc *Service, authEnabled bool, token string, sseHandler http.Handler, vaultRoot string) chi.Router {
 	h := NewHandler(svc)
+	ah := NewAttachmentHandler(vaultRoot)
 
 	r := chi.NewRouter()
 	r.Use(AuthMiddleware(authEnabled, token))
@@ -27,6 +29,9 @@ func NewRouter(svc *Service, authEnabled bool, token string, sseHandler http.Han
 
 	// Graph.
 	r.Get("/graph", h.Graph)
+
+	// Attachments upload (auth-protected).
+	r.Post("/attachments", ah.Upload)
 
 	// SSE endpoint (protected by same auth middleware).
 	if sseHandler != nil {

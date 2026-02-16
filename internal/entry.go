@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -75,9 +76,15 @@ func Run(ctx context.Context, opts ...Option) error {
 	broker := sse.NewBroker(2 * time.Second)
 	defer broker.Close()
 
+	// Ensure attachments directory exists.
+	attachDir := filepath.Join(cfg.Vault.Path, "attachments")
+	if err := os.MkdirAll(attachDir, 0o755); err != nil {
+		return fmt.Errorf("create attachments dir: %w", err)
+	}
+
 	// Build API service and router.
 	svc := api.NewService(store, db)
-	apiRouter := api.NewRouter(svc, cfg.Auth.AuthEnabled(), cfg.Auth.Token, broker)
+	apiRouter := api.NewRouter(svc, cfg.Auth.AuthEnabled(), cfg.Auth.Token, broker, cfg.Vault.Path)
 
 	// Build chi router.
 	r := chi.NewRouter()
@@ -98,8 +105,13 @@ func Run(ctx context.Context, opts ...Option) error {
 		_, _ = w.Write([]byte(`{"status":"ok"}`))
 	})
 
-	// Mount API routes under /api (includes /api/events SSE).
+	// Mount API routes under /api (includes /api/events SSE, POST /api/attachments).
 	r.Mount("/api", apiRouter)
+
+	// Static attachment serving (public, no auth — these are content assets
+	// referenced by notes, analogous to images on a web page).
+	attachHandler := api.NewAttachmentHandler(cfg.Vault.Path)
+	r.Get("/attachments/{filename}", attachHandler.ServeFile)
 
 	httpServer := &http.Server{
 		Addr:    cfg.App.HTTP.Address(),
