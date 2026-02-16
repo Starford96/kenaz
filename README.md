@@ -21,6 +21,19 @@ make run
 
 See `config/config.yaml` and `.env.example` for available settings.
 
+## Frontend
+
+The web UI lives in `frontend/` (Vite + React + Ant Design).
+
+```bash
+cd frontend
+npm install
+npm run dev      # Dev server on http://localhost:5173 (proxies to backend)
+npm run build    # Production build → frontend/dist/
+```
+
+Set `VITE_AUTH_TOKEN` in `frontend/.env` if the backend uses token auth mode.
+
 ## Development
 
 ```bash

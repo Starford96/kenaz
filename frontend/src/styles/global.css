@@ -1,0 +1,51 @@
+/* Global reset and obsidian-like dark styling. */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: #1e1e2e;
+  color: #cdd6f4;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    sans-serif;
+}
+
+/* Scrollbar styling for dark theme. */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #181825;
+}
+::-webkit-scrollbar-thumb {
+  background: #3a3a4e;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #585b70;
+}
+
+/* Wiki-link styling placeholders. */
+.wikilink {
+  color: #7c3aed;
+  text-decoration: none;
+  border-bottom: 1px dotted #7c3aed;
+  cursor: pointer;
+}
+.wikilink:hover {
+  color: #a78bfa;
+  border-bottom-color: #a78bfa;
+}
+.wikilink--missing {
+  color: #6c7086;
+  border-bottom-style: dashed;
+}

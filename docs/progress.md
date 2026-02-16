@@ -51,9 +51,22 @@
 - `indexNewDir` indexes .md files in directories that arrive with content
 - 4 watcher integration tests: new file, new subdir, delete, rename reconciliation
 
+### FE-1 — Frontend App Shell ✅
+- Vite + React 18 + TypeScript scaffold in `frontend/`
+- Obsidian-inspired dark theme (Ant Design v5, compact algorithm)
+- 3-pane layout: left sidebar (file tree), center tabbed viewer, right context panel (backlinks + outline)
+- API client (axios) with auth token injection for all backend endpoints
+- State: @tanstack/react-query for server data, zustand for UI (tabs, sidebar, panels)
+- SSE hook: auto-invalidates react-query caches on note/graph events
+- Quick search modal (Cmd/Ctrl+K) with debounced FTS, keyboard nav
+- Wiki-link rendering with clickable [[links]] and CSS styling
+- Vite dev proxy to backend on :8080
+- `npm run build` passes (tsc + vite)
+
 ## Remaining
 
-### Batch 6 — Frontend (Spec 06)
-- React + Ant Design UI
-- Note editor, search, graph visualization
-- Real-time sync via SSE
+### FE-2 — Editor & Graph
+- Markdown editor (CodeMirror/Monaco) with wikilink autocomplete
+- Graph visualization (react-force-graph-2d)
+- Note creation/editing through the UI
+- Attachment upload UI
