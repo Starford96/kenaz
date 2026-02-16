@@ -77,7 +77,7 @@ func Run(ctx context.Context, opts ...Option) error {
 
 	// Build API service and router.
 	svc := api.NewService(store, db)
-	apiRouter := api.NewRouter(svc, cfg.Auth.Token)
+	apiRouter := api.NewRouter(svc, cfg.Auth.AuthEnabled(), cfg.Auth.Token, broker)
 
 	// Build chi router.
 	r := chi.NewRouter()
@@ -98,11 +98,8 @@ func Run(ctx context.Context, opts ...Option) error {
 		_, _ = w.Write([]byte(`{"status":"ok"}`))
 	})
 
-	// Mount API routes under /api.
+	// Mount API routes under /api (includes /api/events SSE).
 	r.Mount("/api", apiRouter)
-
-	// SSE endpoint.
-	r.Get("/api/events", broker.ServeHTTP)
 
 	httpServer := &http.Server{
 		Addr:    cfg.App.HTTP.Address(),

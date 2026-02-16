@@ -1,16 +1,19 @@
 package api
 
 import (
+	"net/http"
+
 	"github.com/go-chi/chi/v5"
 )
 
 // NewRouter creates a chi router with all API routes mounted.
-// The token parameter controls Bearer auth; empty string disables authentication.
-func NewRouter(svc *Service, token string) chi.Router {
+// authEnabled controls whether Bearer token auth is enforced.
+// sseHandler, if non-nil, is mounted at GET /events inside the auth group.
+func NewRouter(svc *Service, authEnabled bool, token string, sseHandler http.Handler) chi.Router {
 	h := NewHandler(svc)
 
 	r := chi.NewRouter()
-	r.Use(AuthMiddleware(token))
+	r.Use(AuthMiddleware(authEnabled, token))
 
 	// Notes CRUD.
 	r.Get("/notes", h.ListNotes)
@@ -24,6 +27,11 @@ func NewRouter(svc *Service, token string) chi.Router {
 
 	// Graph.
 	r.Get("/graph", h.Graph)
+
+	// SSE endpoint (protected by same auth middleware).
+	if sseHandler != nil {
+		r.Get("/events", sseHandler.ServeHTTP)
+	}
 
 	return r
 }

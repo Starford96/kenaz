@@ -10,4 +10,5 @@ sqlite:
   path: ${SQLITE_PATH:-./kenaz.db}
 
 auth:
+  mode: ${AUTH_MODE:-disabled}
   token: ${AUTH_TOKEN:-}

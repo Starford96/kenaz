@@ -7,6 +7,12 @@ import (
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 )
 
+// Auth modes.
+const (
+	AuthModeDisabled = "disabled"
+	AuthModeToken    = "token"
+)
+
 // Config represents the application configuration.
 type Config struct {
 	App    ApplicationConfig `yaml:"app"`
@@ -23,7 +29,10 @@ func (c *Config) Validate() error {
 	if err := c.Vault.Validate(); err != nil {
 		return err
 	}
-	return c.SQLite.Validate()
+	if err := c.SQLite.Validate(); err != nil {
+		return err
+	}
+	return c.Auth.Validate()
 }
 
 // ApplicationConfig holds application-level configuration.
@@ -79,8 +88,35 @@ func (c *SQLiteConfig) Validate() error {
 }
 
 // AuthConfig holds authentication configuration.
+//
+// Mode controls how authentication is enforced:
+//   - "disabled" (default): no authentication required, suitable for local dev.
+//   - "token": Bearer token authentication; Token must be non-empty.
 type AuthConfig struct {
+	Mode  string `yaml:"mode"`
 	Token string `yaml:"token"`
+}
+
+// Validate validates the auth configuration.
+func (c *AuthConfig) Validate() error {
+	// Normalise empty mode to "disabled" for backward compatibility.
+	if c.Mode == "" {
+		c.Mode = AuthModeDisabled
+	}
+	if err := validation.ValidateStruct(c,
+		validation.Field(&c.Mode, validation.Required, validation.In(AuthModeDisabled, AuthModeToken)),
+	); err != nil {
+		return err
+	}
+	if c.Mode == AuthModeToken && c.Token == "" {
+		return fmt.Errorf("auth: mode is %q but token is empty", AuthModeToken)
+	}
+	return nil
+}
+
+// AuthEnabled returns true when authentication is active.
+func (c *AuthConfig) AuthEnabled() bool {
+	return c.Mode == AuthModeToken
 }
 
 // NewDefaultConfig returns a new Config with sensible default values.
@@ -97,6 +133,9 @@ func NewDefaultConfig() *Config {
 		},
 		SQLite: SQLiteConfig{
 			Path: "./kenaz.db",
+		},
+		Auth: AuthConfig{
+			Mode: AuthModeDisabled,
 		},
 	}
 }

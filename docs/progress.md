@@ -38,6 +38,13 @@
 - SSE broker tests (subscribe, publish, throttle, handler, buffer overflow)
 - MCP tool tests (create, read, list, backlinks, missing note)
 
+### Auth Hardening ✅
+- Auth mode config: `disabled` (default, backward-safe) and `token` (fail-fast if token empty)
+- Config validation catches invalid mode and empty token at startup
+- All protected endpoints under `/api` (including `/api/events` SSE) share auth middleware
+- Health endpoints (`/health/live`, `/health/ready`) remain public
+- 6 config validation tests + 3 SSE auth tests
+
 ## Remaining
 
 ### Batch 6 — Frontend (Spec 06)

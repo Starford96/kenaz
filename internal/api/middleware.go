@@ -7,11 +7,12 @@ import (
 )
 
 // AuthMiddleware returns middleware that validates a Bearer token.
-// If token is empty, authentication is disabled (all requests pass).
-func AuthMiddleware(token string) func(http.Handler) http.Handler {
+// If enabled is false, all requests pass through (disabled mode).
+// If enabled is true, requests must carry a valid "Authorization: Bearer <token>" header.
+func AuthMiddleware(enabled bool, token string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if token == "" {
+			if !enabled {
 				next.ServeHTTP(w, r)
 				return
 			}

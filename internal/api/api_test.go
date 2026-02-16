@@ -2,18 +2,27 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/starford/kenaz/internal/index"
 	"github.com/starford/kenaz/internal/storage"
 )
 
 // testEnv sets up a temp vault, SQLite DB, service, and router for testing.
+// authEnabled=false means disabled mode; authEnabled=true with non-empty token means token mode.
 func testEnv(t *testing.T, authToken string) (*Service, http.Handler) {
+	t.Helper()
+	enabled := authToken != ""
+	return testEnvFull(t, enabled, authToken)
+}
+
+func testEnvFull(t *testing.T, authEnabled bool, authToken string) (*Service, http.Handler) {
 	t.Helper()
 
 	vaultDir := t.TempDir()
@@ -36,7 +45,7 @@ func testEnv(t *testing.T, authToken string) (*Service, http.Handler) {
 	t.Cleanup(func() { db.Close() })
 
 	svc := NewService(store, db)
-	router := NewRouter(svc, authToken)
+	router := NewRouter(svc, authEnabled, authToken, nil)
 	return svc, router
 }
 
@@ -321,4 +330,84 @@ func TestSearchMissingQuery(t *testing.T) {
 	if w.Code != http.StatusBadRequest {
 		t.Errorf("search no query = %d, want 400", w.Code)
 	}
+}
+
+// SSE endpoint auth tests.
+
+func TestSSEEvents_AuthProtected(t *testing.T) {
+	_, router := testEnvWithSSE(t, true, "secret")
+
+	// No token → 401.
+	req := httptest.NewRequest(http.MethodGet, "/events", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("SSE no auth = %d, want 401", w.Code)
+	}
+}
+
+func TestSSEEvents_AuthDisabled(t *testing.T) {
+	_, router := testEnvWithSSE(t, false, "")
+
+	// Disabled mode → should not 401. SSE handler will write 200 and block,
+	// so we cancel the context after a short time.
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+	req := httptest.NewRequest(http.MethodGet, "/events", nil).WithContext(ctx)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	if w.Code == http.StatusUnauthorized {
+		t.Error("SSE should not require auth when disabled")
+	}
+}
+
+func TestSSEEvents_ValidToken(t *testing.T) {
+	_, router := testEnvWithSSE(t, true, "tok")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+	req := httptest.NewRequest(http.MethodGet, "/events", nil).WithContext(ctx)
+	req.Header.Set("Authorization", "Bearer tok")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	if w.Code == http.StatusUnauthorized {
+		t.Error("SSE with valid token should not 401")
+	}
+}
+
+// testEnvWithSSE creates a router with a dummy SSE handler to test auth on /events.
+func testEnvWithSSE(t *testing.T, authEnabled bool, token string) (*Service, http.Handler) {
+	t.Helper()
+
+	vaultDir := t.TempDir()
+	store, err := storage.NewFS(vaultDir)
+	if err != nil {
+		t.Fatalf("NewFS: %v", err)
+	}
+	dbFile, err := os.CreateTemp("", "kenaz-sse-test-*.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	dbFile.Close()
+	t.Cleanup(func() { os.Remove(dbFile.Name()) })
+	db, err := index.Open(dbFile.Name())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { db.Close() })
+
+	svc := NewService(store, db)
+
+	// Minimal SSE handler stub — writes headers and blocks until context done.
+	sseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		if f, ok := w.(http.Flusher); ok {
+			f.Flush()
+		}
+		<-r.Context().Done()
+	})
+
+	router := NewRouter(svc, authEnabled, token, sseHandler)
+	return svc, router
 }
