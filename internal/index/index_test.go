@@ -25,7 +25,6 @@ func testDB(t *testing.T) *DB {
 
 func TestSchemaCreation(t *testing.T) {
 	db := testDB(t)
-	// Verify tables exist by querying them.
 	var count int
 	if err := db.conn.QueryRow(`SELECT count(*) FROM notes`).Scan(&count); err != nil {
 		t.Fatalf("notes table missing: %v", err)
@@ -33,15 +32,10 @@ func TestSchemaCreation(t *testing.T) {
 	if err := db.conn.QueryRow(`SELECT count(*) FROM links`).Scan(&count); err != nil {
 		t.Fatalf("links table missing: %v", err)
 	}
-	// FTS5 virtual table.
-	if err := db.conn.QueryRow(`SELECT count(*) FROM files_fts`).Scan(&count); err != nil {
-		t.Fatalf("files_fts table missing: %v", err)
-	}
 }
 
-func TestUpsertAndSearch(t *testing.T) {
+func TestUpsertAndGetChecksum(t *testing.T) {
 	db := testDB(t)
-
 	row := NoteRow{
 		Path:      "hello.md",
 		Title:     "Hello World",
@@ -49,38 +43,21 @@ func TestUpsertAndSearch(t *testing.T) {
 		Tags:      []string{"go", "test"},
 		UpdatedAt: time.Now(),
 	}
-	if err := db.UpsertNote(row, "This is a hello world note about Kenaz.", []string{"other.md"}); err != nil {
+	if err := db.UpsertNote(row, "This is a hello world note.", []string{"other.md"}); err != nil {
 		t.Fatalf("UpsertNote: %v", err)
 	}
-
-	// Search by content.
-	results, err := db.Search("hello", 10)
+	cs, err := db.GetChecksum("hello.md")
 	if err != nil {
-		t.Fatalf("Search: %v", err)
+		t.Fatalf("GetChecksum: %v", err)
 	}
-	if len(results) != 1 {
-		t.Fatalf("expected 1 result, got %d", len(results))
-	}
-	if results[0].Path != "hello.md" {
-		t.Errorf("path = %q", results[0].Path)
-	}
-
-	// Search by title.
-	results, err = db.Search("World", 10)
-	if err != nil {
-		t.Fatalf("Search title: %v", err)
-	}
-	if len(results) != 1 {
-		t.Errorf("expected 1 result for title search, got %d", len(results))
+	if cs != "abc123" {
+		t.Errorf("checksum = %q, want %q", cs, "abc123")
 	}
 }
 
 func TestBacklinks(t *testing.T) {
 	db := testDB(t)
-
-	// Note A links to Note B.
 	_ = db.UpsertNote(NoteRow{Path: "a.md", Checksum: "1", Tags: []string{}, UpdatedAt: time.Now()}, "body", []string{"b.md"})
-	// Note C also links to Note B.
 	_ = db.UpsertNote(NoteRow{Path: "c.md", Checksum: "2", Tags: []string{}, UpdatedAt: time.Now()}, "body", []string{"b.md"})
 
 	bl, err := db.Backlinks("b.md")
@@ -99,16 +76,10 @@ func TestDeleteNote(t *testing.T) {
 	if err := db.DeleteNote("del.md"); err != nil {
 		t.Fatalf("DeleteNote: %v", err)
 	}
-
-	// Should not appear in search.
-	results, _ := db.Search("body", 10)
-	for _, r := range results {
-		if r.Path == "del.md" {
-			t.Error("deleted note still in FTS")
-		}
+	cs, _ := db.GetChecksum("del.md")
+	if cs != "" {
+		t.Errorf("deleted note still has checksum %q", cs)
 	}
-
-	// Links should be gone.
 	bl, _ := db.Backlinks("target.md")
 	if len(bl) != 0 {
 		t.Errorf("expected 0 backlinks after delete, got %d", len(bl))
@@ -125,8 +96,6 @@ func TestUpsertUpdatesExisting(t *testing.T) {
 	if cs != "2" {
 		t.Errorf("checksum = %q, want %q", cs, "2")
 	}
-
-	// Old link should be replaced.
 	bl, _ := db.Backlinks("x.md")
 	if len(bl) != 0 {
 		t.Error("old link should be removed on upsert")
@@ -134,12 +103,6 @@ func TestUpsertUpdatesExisting(t *testing.T) {
 	bl, _ = db.Backlinks("y.md")
 	if len(bl) != 1 {
 		t.Error("new link should exist")
-	}
-
-	// FTS should have new content.
-	results, _ := db.Search("new", 10)
-	if len(results) != 1 || results[0].Title != "New" {
-		t.Errorf("FTS not updated: %+v", results)
 	}
 }
 
@@ -151,5 +114,18 @@ func TestGetChecksum_NotFound(t *testing.T) {
 	}
 	if cs != "" {
 		t.Errorf("expected empty checksum, got %q", cs)
+	}
+}
+
+func TestSearch_Basic(t *testing.T) {
+	db := testDB(t)
+	_ = db.UpsertNote(NoteRow{Path: "s.md", Title: "Search Me", Checksum: "1", Tags: []string{}, UpdatedAt: time.Now()}, "uniqueword appears here", nil)
+
+	results, err := db.Search("uniqueword", 10)
+	if err != nil {
+		t.Fatalf("Search: %v", err)
+	}
+	if len(results) != 1 || results[0].Path != "s.md" {
+		t.Errorf("search results = %+v, want 1 hit for s.md", results)
 	}
 }

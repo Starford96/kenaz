@@ -3,7 +3,6 @@ package index
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 )
 
@@ -16,14 +15,14 @@ type NoteRow struct {
 	UpdatedAt time.Time
 }
 
-// SearchResult represents one FTS5 search hit.
+// SearchResult represents one search hit.
 type SearchResult struct {
 	Path    string
 	Title   string
 	Snippet string
 }
 
-// UpsertNote inserts or replaces a note and its FTS entry within a transaction.
+// UpsertNote inserts or replaces a note, its FTS entry, and links within a transaction.
 func (db *DB) UpsertNote(n NoteRow, body string, links []string) error {
 	tx, err := db.conn.Begin()
 	if err != nil {
@@ -33,26 +32,24 @@ func (db *DB) UpsertNote(n NoteRow, body string, links []string) error {
 
 	tagsJSON, _ := json.Marshal(n.Tags)
 
-	// Upsert notes table.
+	// Upsert notes table (includes body for fallback search).
 	_, err = tx.Exec(`
-		INSERT INTO notes (path, title, checksum, tags, updated_at)
-		VALUES (?, ?, ?, ?, ?)
+		INSERT INTO notes (path, title, checksum, tags, body, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?)
 		ON CONFLICT(path) DO UPDATE SET
 			title      = excluded.title,
 			checksum   = excluded.checksum,
 			tags       = excluded.tags,
+			body       = excluded.body,
 			updated_at = excluded.updated_at
-	`, n.Path, n.Title, n.Checksum, string(tagsJSON), n.UpdatedAt)
+	`, n.Path, n.Title, n.Checksum, string(tagsJSON), body, n.UpdatedAt)
 	if err != nil {
 		return fmt.Errorf("index: upsert note: %w", err)
 	}
 
-	// Replace FTS entry: delete old then insert new.
-	_, _ = tx.Exec(`DELETE FROM files_fts WHERE path = ?`, n.Path)
-	_, err = tx.Exec(`INSERT INTO files_fts (path, title, body, tags) VALUES (?, ?, ?, ?)`,
-		n.Path, n.Title, body, strings.Join(n.Tags, " "))
-	if err != nil {
-		return fmt.Errorf("index: upsert fts: %w", err)
+	// FTS upsert (no-op when FTS5 tag is absent).
+	if err := ftsUpsert(tx, n.Path, n.Title, body, n.Tags); err != nil {
+		return err
 	}
 
 	// Replace links: delete old then bulk insert.
@@ -81,7 +78,7 @@ func (db *DB) DeleteNote(path string) error {
 	}
 	defer tx.Rollback() //nolint:errcheck
 
-	_, _ = tx.Exec(`DELETE FROM files_fts WHERE path = ?`, path)
+	ftsDelete(tx, path)
 	_, _ = tx.Exec(`DELETE FROM links WHERE source = ?`, path)
 	_, _ = tx.Exec(`DELETE FROM notes WHERE path = ?`, path)
 
@@ -112,36 +109,6 @@ func (db *DB) AllPaths() (map[string]struct{}, error) {
 			return nil, err
 		}
 		out[p] = struct{}{}
-	}
-	return out, rows.Err()
-}
-
-// Search performs an FTS5 full-text search and returns matching results with snippets.
-func (db *DB) Search(query string, limit int) ([]SearchResult, error) {
-	if limit <= 0 {
-		limit = 20
-	}
-	rows, err := db.conn.Query(`
-		SELECT path,
-		       title,
-		       snippet(files_fts, 2, '<b>', '</b>', '...', 64)
-		FROM files_fts
-		WHERE files_fts MATCH ?
-		ORDER BY rank
-		LIMIT ?
-	`, query, limit)
-	if err != nil {
-		return nil, fmt.Errorf("index: search: %w", err)
-	}
-	defer rows.Close()
-
-	var out []SearchResult
-	for rows.Next() {
-		var r SearchResult
-		if err := rows.Scan(&r.Path, &r.Title, &r.Snippet); err != nil {
-			return nil, err
-		}
-		out = append(out, r)
 	}
 	return out, rows.Err()
 }

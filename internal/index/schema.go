@@ -1,4 +1,4 @@
-// Package index provides SQLite-backed note indexing with FTS5 full-text search.
+// Package index provides SQLite-backed note indexing with optional FTS5 full-text search.
 package index
 
 import (
@@ -8,12 +8,13 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-const schemaSQL = `
+const coreSchemaSQL = `
 CREATE TABLE IF NOT EXISTS notes (
 	path       TEXT PRIMARY KEY,
 	title      TEXT NOT NULL DEFAULT '',
 	checksum   TEXT NOT NULL DEFAULT '',
 	tags       TEXT NOT NULL DEFAULT '[]',
+	body       TEXT NOT NULL DEFAULT '',
 	updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -26,15 +27,12 @@ CREATE TABLE IF NOT EXISTS links (
 
 CREATE INDEX IF NOT EXISTS idx_links_source ON links(source);
 CREATE INDEX IF NOT EXISTS idx_links_target ON links(target);
-
-CREATE VIRTUAL TABLE IF NOT EXISTS files_fts USING fts5(
-	path UNINDEXED,
-	title,
-	body,
-	tags,
-	tokenize = 'unicode61 remove_diacritics 2'
-);
 `
+
+// DB wraps a sql.DB with index-specific operations.
+type DB struct {
+	conn *sql.DB
+}
 
 // Open opens (or creates) the SQLite database and applies the schema.
 func Open(dsn string) (*DB, error) {
@@ -46,16 +44,15 @@ func Open(dsn string) (*DB, error) {
 		conn.Close()
 		return nil, fmt.Errorf("index: ping: %w", err)
 	}
-	if _, err := conn.Exec(schemaSQL); err != nil {
+	if _, err := conn.Exec(coreSchemaSQL); err != nil {
 		conn.Close()
-		return nil, fmt.Errorf("index: apply schema: %w", err)
+		return nil, fmt.Errorf("index: apply core schema: %w", err)
+	}
+	if err := initFTS(conn); err != nil {
+		conn.Close()
+		return nil, fmt.Errorf("index: apply fts schema: %w", err)
 	}
 	return &DB{conn: conn}, nil
-}
-
-// DB wraps a sql.DB with index-specific operations.
-type DB struct {
-	conn *sql.DB
 }
 
 // Close closes the underlying database connection.
