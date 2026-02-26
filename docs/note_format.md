@@ -43,6 +43,16 @@ status: "draft"
 
 Unknown fields are allowed and preserved.
 
+## Language Policy
+
+- **File names** must be in English (Latin characters, lowercase, kebab-case preferred). Example: `meeting-notes.md`, not `нотатки-зустрічі.md`.
+- **Directory/folder names** must be in English. Example: `projects/kenaz/`, not `проекти/kenaz/`.
+- **Frontmatter keys** must be in English (they are part of the schema: `title`, `tags`, `status`, etc.).
+- **Frontmatter values** may be in any language, including Cyrillic. For example: `title: "Нотатки зустрічі"`, `tags: ["архітектура", "kenaz"]`.
+- **Body content** (Markdown text below the frontmatter) may be written in any language, including Cyrillic.
+
+File and directory naming rules ensure cross-platform path compatibility. Frontmatter values and body content are fully indexed by FTS5 (`unicode61` tokenizer) and searchable in any language.
+
 ## Body Conventions
 
 - Use Markdown headings (`#`, `##`) for structure.
@@ -135,6 +145,8 @@ Before creating a note, verify:
 
 - Path ends with `.md`
 - Path is vault-relative and safe
+- File name and all directory segments use English (Latin) characters only
+- Frontmatter keys are in English (values may use any language)
 - Markdown is non-empty
 - Frontmatter (if present) is valid YAML
 - Wikilinks use `[[target]]` or `[[target|label]]`

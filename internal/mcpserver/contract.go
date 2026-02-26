@@ -34,6 +34,9 @@ Use [[target|alias]] for display text that differs from the target.
 5. **File paths** end with ` + "`" + `.md` + "`" + ` and use forward slashes.
 6. **Encoding** is UTF-8 with a trailing newline.
 7. **No HTML** unless absolutely necessary; prefer Markdown equivalents.
+8. **Language policy:** file names and directory names MUST be in English (Latin characters).
+   Frontmatter keys MUST be in English (they are schema fields). Frontmatter values
+   (title, tags, aliases, etc.) and body content may use any language including Cyrillic.
 
 ## Example
 

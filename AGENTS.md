@@ -74,6 +74,15 @@ When creating notes via API/MCP or generating sample note content, follow:
 
 Prefer valid frontmatter and canonical wikilink syntax.
 
+### Note Language Policy
+
+- **File names and directory names** must be in English (Latin characters only, kebab-case preferred).
+- **Frontmatter keys** must be in English (they are schema fields: `title`, `tags`, `status`, etc.).
+- **Frontmatter values** (title, tags, aliases, etc.) may use any language, including Cyrillic.
+- **Body content** (Markdown text) may be written in any language, including Cyrillic.
+
+Agents must enforce these rules when creating or updating notes.
+
 ## Docker Registry
 
 The project uses a local HTTP registry for Docker images:

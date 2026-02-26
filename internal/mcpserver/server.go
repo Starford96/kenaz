@@ -49,8 +49,9 @@ func New(store storage.Provider, db *index.DB) *Server {
 	s.mcp.AddTool(mcp.NewTool("create_note",
 		mcp.WithDescription("Create a new Markdown note at the specified path. "+
 			"Content MUST follow the canonical note format (YAML frontmatter with title, "+
-			"optional tags, Markdown body with [[wikilinks]]). Read the contract first via "+
-			"the get_note_contract tool or the kenaz://note-format resource."),
+			"optional tags, Markdown body with [[wikilinks]]). "+
+			"Language policy: file/directory names must be in English; frontmatter values and body content may use any language. "+
+			"Read the contract first via the get_note_contract tool or the kenaz://note-format resource."),
 		mcp.WithString("path", mcp.Required(), mcp.Description("Relative path for the new note (must end with .md)")),
 		mcp.WithString("content", mcp.Required(), mcp.Description("Markdown content following the Kenaz note format contract")),
 	), s.createNote)
@@ -58,6 +59,7 @@ func New(store storage.Provider, db *index.DB) *Server {
 	s.mcp.AddTool(mcp.NewTool("update_note",
 		mcp.WithDescription("Update an existing Markdown note at the specified path. "+
 			"Content MUST follow the canonical note format. "+
+			"Language policy: file/directory names must be in English; frontmatter values and body content may use any language. "+
 			"Optionally provide a checksum for optimistic concurrency (SHA-256 of current content)."),
 		mcp.WithString("path", mcp.Required(), mcp.Description("Relative path to the note")),
 		mcp.WithString("content", mcp.Required(), mcp.Description("Updated Markdown content")),
