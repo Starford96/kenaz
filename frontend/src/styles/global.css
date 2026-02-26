@@ -1,4 +1,31 @@
-/* Global reset and obsidian-like dark styling. */
+/* ── CSS custom properties (Arctic Teal palette) ─────────── */
+:root {
+  --bg-deepest: #080b12;
+  --bg-base: #0d1018;
+  --bg-surface: #151a24;
+  --bg-elevated: #1b2130;
+
+  --text-primary: #e4e8f1;
+  --text-secondary: #858ca0;
+  --text-tertiary: #4a5066;
+  --text-emphasis: #c4c9d8;
+
+  --accent: #2dd4bf;
+  --accent-hover: #5eead4;
+  --accent-active: #99f6e4;
+  --accent-muted: rgba(45, 212, 191, 0.10);
+  --accent-muted-active: rgba(45, 212, 191, 0.18);
+
+  --border: #1c2233;
+  --border-hover: #2d3548;
+
+  --inline-code: #f0a8a8;
+  --selection: rgba(45, 212, 191, 0.12);
+  --mask: rgba(0, 0, 0, 0.50);
+  --mask-light: rgba(0, 0, 0, 0.45);
+}
+
+/* ── Global reset ────────────────────────────────────────── */
 
 *,
 *::before,
@@ -12,8 +39,8 @@ body,
   margin: 0;
   padding: 0;
   height: 100%;
-  background: #1e1e2e;
-  color: #cdd6f4;
+  background: var(--bg-base);
+  color: var(--text-primary);
   font-family: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
     sans-serif;
 }
@@ -22,35 +49,35 @@ body,
   container-type: inline-size;
 }
 
-/* Scrollbar styling for dark theme. */
+/* ── Scrollbar ───────────────────────────────────────────── */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: #181825;
+  background: var(--bg-deepest);
 }
 ::-webkit-scrollbar-thumb {
-  background: #3a3a4e;
+  background: var(--border);
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #585b70;
+  background: var(--border-hover);
 }
 
 /* ── Wiki-link styling ───────────────────────────────────── */
 .wikilink {
-  color: #7c3aed;
+  color: var(--accent);
   text-decoration: none;
-  border-bottom: 1px dotted #7c3aed;
+  border-bottom: 1px dotted var(--accent);
   cursor: pointer;
 }
 .wikilink:hover {
-  color: #a78bfa;
-  border-bottom-color: #a78bfa;
+  color: var(--accent-hover);
+  border-bottom-color: var(--accent-hover);
 }
 .wikilink--missing {
-  color: #6c7086;
+  color: var(--text-tertiary);
   border-bottom-style: dashed;
 }
 
@@ -58,7 +85,7 @@ body,
 .md-preview {
   line-height: 1.75;
   font-size: 15px;
-  color: #cdd6f4;
+  color: var(--text-primary);
 }
 
 .md-preview h1,
@@ -67,7 +94,7 @@ body,
 .md-preview h4,
 .md-preview h5,
 .md-preview h6 {
-  color: #cdd6f4;
+  color: var(--text-primary);
   font-weight: 600;
   margin-top: 1.5em;
   margin-bottom: 0.5em;
@@ -76,12 +103,12 @@ body,
 
 .md-preview h1 {
   font-size: 1.8em;
-  border-bottom: 1px solid #3a3a4e;
+  border-bottom: 1px solid var(--border);
   padding-bottom: 0.3em;
 }
 .md-preview h2 {
   font-size: 1.4em;
-  border-bottom: 1px solid #3a3a4e;
+  border-bottom: 1px solid var(--border);
   padding-bottom: 0.2em;
 }
 .md-preview h3 {
@@ -92,10 +119,10 @@ body,
 .md-preview blockquote {
   margin: 0.8em 0;
   padding: 0.5em 1em;
-  border-left: 3px solid #7c3aed;
-  background: #252536;
+  border-left: 3px solid var(--accent);
+  background: var(--bg-surface);
   border-radius: 0 6px 6px 0;
-  color: #a6adc8;
+  color: var(--text-secondary);
 }
 .md-preview blockquote p {
   margin: 0.3em 0;
@@ -103,8 +130,8 @@ body,
 
 /* Code blocks */
 .md-preview pre {
-  background: #181825;
-  border: 1px solid #3a3a4e;
+  background: var(--bg-deepest);
+  border: 1px solid var(--border);
   border-radius: 6px;
   padding: 12px 16px;
   overflow-x: auto;
@@ -117,16 +144,16 @@ body,
   padding: 0;
   border-radius: 0;
   font-size: inherit;
-  color: #cdd6f4;
+  color: var(--text-primary);
 }
 
 /* Inline code */
 .md-preview code {
-  background: #252536;
+  background: var(--bg-surface);
   padding: 2px 6px;
   border-radius: 4px;
   font-size: 0.9em;
-  color: #f38ba8;
+  color: var(--inline-code);
   font-family: "JetBrains Mono", "Fira Code", "Cascadia Code", monospace;
 }
 
@@ -141,29 +168,29 @@ body,
   line-height: 1.7;
 }
 .md-preview li::marker {
-  color: #6c7086;
+  color: var(--text-tertiary);
 }
 
 /* Task lists */
 .md-preview li > input[type="checkbox"] {
   margin-right: 6px;
-  accent-color: #7c3aed;
+  accent-color: var(--accent);
 }
 
 /* Horizontal rules */
 .md-preview hr {
   border: none;
-  border-top: 1px solid #3a3a4e;
+  border-top: 1px solid var(--border);
   margin: 1.5em 0;
 }
 
 /* Links */
 .md-preview a {
-  color: #7c3aed;
+  color: var(--accent);
   text-decoration: none;
 }
 .md-preview a:hover {
-  color: #a78bfa;
+  color: var(--accent-hover);
   text-decoration: underline;
 }
 
@@ -182,37 +209,37 @@ body,
 }
 .md-preview th,
 .md-preview td {
-  border: 1px solid #3a3a4e;
+  border: 1px solid var(--border);
   padding: 6px 12px;
   text-align: left;
 }
 .md-preview th {
-  background: #252536;
+  background: var(--bg-surface);
   font-weight: 600;
 }
 .md-preview tr:nth-child(even) {
-  background: #1e1e2e;
+  background: var(--bg-base);
 }
 
 /* Bold & italic */
 .md-preview strong {
-  color: #cdd6f4;
+  color: var(--text-primary);
   font-weight: 600;
 }
 .md-preview em {
-  color: #bac2de;
+  color: var(--text-emphasis);
 }
 
 /* ── Ant modal backdrop for command palette ───────────────── */
 .ant-modal-mask {
-  background: rgba(0, 0, 0, 0.5) !important;
+  background: var(--mask) !important;
   backdrop-filter: blur(2px);
 }
 
 .kenaz-palette .ant-modal-content {
-  background: #252536 !important;
+  background: var(--bg-surface) !important;
   border-radius: 12px !important;
-  border: 1px solid #3a3a4e !important;
+  border: 1px solid var(--border) !important;
   overflow: hidden !important;
   padding: 0 !important;
 }
@@ -223,7 +250,7 @@ body,
   flex-direction: column;
   height: 100dvh;
   overflow: hidden;
-  background: #1e1e2e;
+  background: var(--bg-base);
 }
 
 .mobile-content {
@@ -242,10 +269,10 @@ body,
   gap: 8px;
   height: 48px;
   padding: 0 12px;
-  background: rgba(30, 30, 46, 0.82);
+  background: rgba(13, 16, 24, 0.82);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border-bottom: 1px solid #3a3a4e;
+  border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
 
@@ -258,21 +285,21 @@ body,
   border: none;
   border-radius: 8px;
   background: transparent;
-  color: #a6adc8;
+  color: var(--text-secondary);
   font-size: 18px;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   transition: background 0.15s;
 }
 .mobile-header__btn:active {
-  background: rgba(124, 58, 237, 0.15);
+  background: var(--accent-muted);
 }
 
 .mobile-header__title {
   flex: 1;
   text-align: center;
   font-size: 14px !important;
-  color: #cdd6f4 !important;
+  color: var(--text-primary) !important;
   line-height: 48px !important;
 }
 
@@ -286,10 +313,10 @@ body,
   align-items: stretch;
   height: calc(56px + env(safe-area-inset-bottom, 0px));
   padding-bottom: env(safe-area-inset-bottom, 0px);
-  background: rgba(24, 24, 37, 0.88);
+  background: rgba(8, 11, 18, 0.88);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
-  border-top: 1px solid #3a3a4e;
+  border-top: 1px solid var(--border);
   flex-shrink: 0;
 }
 
@@ -302,7 +329,7 @@ body,
   gap: 2px;
   border: none;
   background: transparent;
-  color: #6c7086;
+  color: var(--text-tertiary);
   font-size: 18px;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
@@ -314,19 +341,19 @@ body,
 }
 .bottom-bar__btn:active {
   transform: scale(0.92);
-  color: #a6adc8;
+  color: var(--text-secondary);
 }
 .bottom-bar__btn--accent {
-  color: #7c3aed;
+  color: var(--accent);
 }
 .bottom-bar__btn--accent:active {
-  color: #a78bfa;
+  color: var(--accent-hover);
 }
 
 /* ── Outline items (context panel) ──────────────────────── */
 .outline-item {
   cursor: pointer;
-  color: #7c3aed;
+  color: var(--accent);
   border-radius: 4px;
   padding: 2px 6px;
   margin: 0 -6px;
@@ -341,23 +368,23 @@ body,
   font-weight: 600;
 }
 .outline-item:hover {
-  color: #a78bfa;
-  background: rgba(124, 58, 237, 0.1);
+  color: var(--accent-hover);
+  background: var(--accent-muted);
 }
 .outline-item:active {
-  color: #c4b5fd;
-  background: rgba(124, 58, 237, 0.18);
+  color: var(--accent-active);
+  background: var(--accent-muted-active);
 }
 
 /* ── Drawer overrides ────────────────────────────────────── */
 .kenaz-drawer .ant-drawer-body {
-  background: #181825 !important;
+  background: var(--bg-deepest) !important;
 }
 .kenaz-drawer .ant-drawer-content {
-  background: #181825 !important;
+  background: var(--bg-deepest) !important;
 }
 .kenaz-drawer .ant-drawer-mask {
-  background: rgba(0, 0, 0, 0.45) !important;
+  background: var(--mask-light) !important;
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
 }
@@ -443,8 +470,6 @@ body,
     scrollbar-width: none;
   }
 
-  /* Safety net: if the desktop layout ever renders on a narrow viewport,
-     hide the Siders so the Content area remains visible. */
   .ant-layout > .ant-layout-sider {
     display: none !important;
   }

@@ -12,6 +12,7 @@ import { useQuery } from "@tanstack/react-query";
 import { searchNotes, listNotes, type SearchResult } from "../api/notes";
 import { useUIStore } from "../store/ui";
 import { useIsMobile } from "../hooks/useIsMobile";
+import { c } from "../styles/colors";
 
 const { Text } = Typography;
 
@@ -56,8 +57,6 @@ export default function SearchModal() {
         icon: <PlusOutlined />,
         kind: "command",
         action: () => {
-          // Close palette, let sidebar handle creation.
-          // We use a tiny hack: dispatch a custom event the sidebar listens to.
           window.dispatchEvent(new CustomEvent("kenaz:create-note"));
         },
       },
@@ -113,7 +112,6 @@ export default function SearchModal() {
     const q = query.trim().toLowerCase();
 
     if (q) {
-      // Search results as file items.
       const fileItems: PaletteItem[] = searchResults.map((r) => ({
         key: `file:${r.path}`,
         label: r.title || r.path,
@@ -123,15 +121,13 @@ export default function SearchModal() {
         action: () => openTab(r.path, r.title || r.path),
       }));
 
-      // Filter commands by query.
-      const cmdItems = commands.filter((c) =>
-        c.label.toLowerCase().includes(q),
+      const cmdItems = commands.filter((cmd) =>
+        cmd.label.toLowerCase().includes(q),
       );
 
       return [...fileItems, ...cmdItems];
     }
 
-    // No query: show recent files + all commands.
     const recentFiles: PaletteItem[] = (notesList?.notes ?? [])
       .slice(0, 8)
       .map((n) => ({
@@ -199,13 +195,13 @@ export default function SearchModal() {
       <div
         style={{
           padding: "12px 16px",
-          borderBottom: "1px solid #3a3a4e",
+          borderBottom: `1px solid ${c.border}`,
         }}
       >
         <Input
           ref={inputRef as never}
           prefix={
-            <SearchOutlined style={{ color: "#6c7086", fontSize: 16 }} />
+            <SearchOutlined style={{ color: c.textTertiary, fontSize: 16 }} />
           }
           placeholder="Search notes or run a command…"
           value={query}
@@ -234,14 +230,14 @@ export default function SearchModal() {
                   padding: isMobile ? "12px 16px" : "8px 16px",
                   cursor: "pointer",
                   background:
-                    idx === selected ? "#3a3a5e" : "transparent",
+                    idx === selected ? c.selection : "transparent",
                   transition: "background 0.1s",
                 }}
                 onMouseEnter={() => setSelected(idx)}
               >
                 <span
                   style={{
-                    color: item.kind === "command" ? "#7c3aed" : "#6c7086",
+                    color: item.kind === "command" ? c.accent : c.textTertiary,
                     fontSize: 16,
                     flexShrink: 0,
                     width: 20,
@@ -254,7 +250,7 @@ export default function SearchModal() {
                   <Text
                     strong
                     style={{
-                      color: "#cdd6f4",
+                      color: c.textPrimary,
                       fontSize: 14,
                       display: "block",
                     }}
@@ -278,7 +274,7 @@ export default function SearchModal() {
                     style={{
                       fontSize: 11,
                       flexShrink: 0,
-                      background: "#1e1e2e",
+                      background: c.bgBase,
                       padding: "1px 6px",
                       borderRadius: 4,
                     }}
@@ -303,11 +299,11 @@ export default function SearchModal() {
         <div
           style={{
             padding: "6px 16px",
-            borderTop: "1px solid #3a3a4e",
+            borderTop: `1px solid ${c.border}`,
             display: "flex",
             gap: 16,
             fontSize: 11,
-            color: "#6c7086",
+            color: c.textTertiary,
           }}
         >
           <span>↑↓ navigate</span>

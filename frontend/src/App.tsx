@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { ConfigProvider, Layout, App as AntApp, Drawer } from "antd";
 import { darkTheme } from "./styles/theme";
+import { c } from "./styles/colors";
 import { useUIStore } from "./store/ui";
 import {
   useContainerWidth,
@@ -72,14 +73,14 @@ export default function App() {
               width="82vw"
               closable={false}
               className="kenaz-drawer"
-              styles={{ body: { padding: 0, background: "#181825" } }}
+              styles={{ body: { padding: 0, background: c.bgDeepest } }}
             >
               <div
                 style={{
                   padding: "14px 16px 8px",
                   fontSize: 15,
                   fontWeight: 600,
-                  color: "#cdd6f4",
+                  color: c.textPrimary,
                   letterSpacing: 0.5,
                 }}
               >
@@ -95,7 +96,7 @@ export default function App() {
               width="82vw"
               closable={false}
               className="kenaz-drawer"
-              styles={{ body: { padding: 0, background: "#181825" } }}
+              styles={{ body: { padding: 0, background: c.bgDeepest } }}
             >
               <ContextPanel />
             </Drawer>
@@ -117,7 +118,7 @@ export default function App() {
             collapsedWidth={0}
             collapsed={sidebarCollapsed}
             style={{
-              borderRight: "1px solid #3a3a4e",
+              borderRight: `1px solid ${c.border}`,
               overflow: "auto",
             }}
           >
@@ -126,7 +127,7 @@ export default function App() {
                 padding: "12px 16px 8px",
                 fontSize: 14,
                 fontWeight: 600,
-                color: "#cdd6f4",
+                color: c.textPrimary,
                 letterSpacing: 0.5,
               }}
             >
@@ -152,7 +153,7 @@ export default function App() {
             <Sider
               width={240}
               style={{
-                borderLeft: "1px solid #3a3a4e",
+                borderLeft: `1px solid ${c.border}`,
                 overflow: "auto",
               }}
             >

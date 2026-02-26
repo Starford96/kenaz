@@ -4,6 +4,7 @@ import { Spin, Typography } from "antd";
 import ForceGraph2D from "react-force-graph-2d";
 import { getGraph } from "../api/notes";
 import { useUIStore } from "../store/ui";
+import { c } from "../styles/colors";
 
 const { Text } = Typography;
 
@@ -62,11 +63,11 @@ export default function GraphView() {
       // Node dot.
       ctx.beginPath();
       ctx.arc(node.x!, node.y!, 4 / globalScale, 0, 2 * Math.PI);
-      ctx.fillStyle = "#7c3aed";
+      ctx.fillStyle = c.accent;
       ctx.fill();
 
       // Label.
-      ctx.fillStyle = "#cdd6f4";
+      ctx.fillStyle = c.textPrimary;
       ctx.textAlign = "center";
       ctx.textBaseline = "top";
       ctx.fillText(label, node.x!, node.y! + 6 / globalScale);
@@ -84,7 +85,7 @@ export default function GraphView() {
           alignItems: "center",
           justifyContent: "center",
           height: "100%",
-          color: "#6c7086",
+          color: c.textTertiary,
         }}
       >
         No notes to graph yet
@@ -102,7 +103,7 @@ export default function GraphView() {
   return (
     <div
       ref={containerRef}
-      style={{ width: "100%", height: "100%", background: "#1e1e2e" }}
+      style={{ width: "100%", height: "100%", background: c.bgBase }}
     >
       <ForceGraph2D
         ref={fgRef}
@@ -111,9 +112,9 @@ export default function GraphView() {
         nodeLabel={nodeLabel as never}
         nodeCanvasObject={nodeCanvasObject as never}
         onNodeClick={handleNodeClick as never}
-        linkColor={() => "#3a3a4e"}
+        linkColor={() => c.border}
         linkWidth={1}
-        backgroundColor="#1e1e2e"
+        backgroundColor={c.bgBase}
         width={containerRef.current?.clientWidth ?? 800}
         height={containerRef.current?.clientHeight ?? 600}
       />

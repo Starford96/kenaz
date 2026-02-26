@@ -7,6 +7,7 @@ import { oneDark } from "@codemirror/theme-one-dark";
 import { defaultKeymap, indentWithTab } from "@codemirror/commands";
 import { wikilinkCompletion } from "./wikilinkComplete";
 import { uploadAttachment } from "../api/notes";
+import { c } from "../styles/colors";
 
 interface Props {
   value: string;
@@ -68,7 +69,6 @@ export default function MarkdownEditor({
       }),
       // Wikilink autocomplete.
       wikilinkCompletion(() => notePathsRef.current?.() ?? []),
-      // Theme overrides for Obsidian-like look.
       EditorView.theme({
         "&": {
           fontSize: "15px",
@@ -80,32 +80,31 @@ export default function MarkdownEditor({
           padding: "16px 0",
         },
         ".cm-gutters": {
-          background: "#1e1e2e",
-          borderRight: "1px solid #3a3a4e",
+          background: c.bgBase,
+          borderRight: `1px solid ${c.border}`,
         },
         ".cm-activeLineGutter": {
-          background: "#252536",
+          background: c.bgSurface,
         },
         ".cm-activeLine": {
-          background: "#252536",
+          background: c.bgSurface,
         },
         "&.cm-focused .cm-cursor": {
-          borderLeftColor: "#7c3aed",
+          borderLeftColor: c.accent,
         },
         "&.cm-focused .cm-selectionBackground, ::selection": {
-          background: "#3a3a5e !important",
+          background: `${c.selection} !important`,
         },
-        // Autocomplete tooltip styling.
         ".cm-tooltip.cm-tooltip-autocomplete": {
-          background: "#2a2a3c",
-          border: "1px solid #3a3a4e",
+          background: c.bgElevated,
+          border: `1px solid ${c.border}`,
         },
         ".cm-tooltip.cm-tooltip-autocomplete > ul > li": {
-          color: "#cdd6f4",
+          color: c.textPrimary,
         },
         ".cm-tooltip.cm-tooltip-autocomplete > ul > li[aria-selected]": {
-          background: "#3a3a5e",
-          color: "#cdd6f4",
+          background: c.selection,
+          color: c.textPrimary,
         },
       }),
     ];

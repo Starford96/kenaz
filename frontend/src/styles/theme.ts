@@ -1,34 +1,34 @@
 import type { ThemeConfig } from "antd";
 import { theme } from "antd";
+import { c } from "./colors";
 
-/** Obsidian-inspired dark theme for Ant Design. */
 export const darkTheme: ThemeConfig = {
   algorithm: [theme.darkAlgorithm, theme.compactAlgorithm],
   token: {
-    colorPrimary: "#7c3aed",      // Purple accent.
-    colorBgBase: "#1e1e2e",       // Dark background.
-    colorBgContainer: "#252536",  // Card / panel background.
-    colorBgElevated: "#2a2a3c",   // Dropdown / modal background.
-    colorBorder: "#3a3a4e",       // Subtle borders.
-    colorText: "#cdd6f4",         // Light text.
-    colorTextSecondary: "#a6adc8",
+    colorPrimary: c.accent,
+    colorBgBase: c.bgBase,
+    colorBgContainer: c.bgSurface,
+    colorBgElevated: c.bgElevated,
+    colorBorder: c.border,
+    colorText: c.textPrimary,
+    colorTextSecondary: c.textSecondary,
     borderRadius: 6,
     fontFamily:
       "'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
   },
   components: {
     Layout: {
-      siderBg: "#181825",
-      headerBg: "#1e1e2e",
-      bodyBg: "#1e1e2e",
+      siderBg: c.bgDeepest,
+      headerBg: c.bgBase,
+      bodyBg: c.bgBase,
     },
     Menu: {
-      darkItemBg: "#181825",
-      darkSubMenuItemBg: "#181825",
+      darkItemBg: c.bgDeepest,
+      darkSubMenuItemBg: c.bgDeepest,
     },
     Drawer: {
-      colorBgElevated: "#181825",
-      colorBgMask: "rgba(0, 0, 0, 0.45)",
+      colorBgElevated: c.bgDeepest,
+      colorBgMask: c.maskLight,
     },
   },
 };

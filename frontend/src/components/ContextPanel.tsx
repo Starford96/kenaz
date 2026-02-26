@@ -4,6 +4,7 @@ import { LinkOutlined, OrderedListOutlined } from "@ant-design/icons";
 import { getNote } from "../api/notes";
 import { useUIStore } from "../store/ui";
 import { slugify } from "../utils/slugify";
+import { c } from "../styles/colors";
 
 const { Text } = Typography;
 
@@ -19,7 +20,7 @@ export default function ContextPanel() {
 
   if (!activeTab) {
     return (
-      <div style={{ padding: 16, color: "#6c7086" }}>
+      <div style={{ padding: 16, color: c.textTertiary }}>
         Select a note to see context
       </div>
     );
@@ -52,7 +53,7 @@ export default function ContextPanel() {
               style={{ cursor: "pointer", padding: "2px 0", border: "none" }}
               onClick={() => openTab(bl, bl)}
             >
-              <Text style={{ color: "#7c3aed", fontSize: 13 }}>{bl}</Text>
+              <Text style={{ color: c.accent, fontSize: 13 }}>{bl}</Text>
             </List.Item>
           )}
         />

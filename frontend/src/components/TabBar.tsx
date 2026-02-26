@@ -2,6 +2,7 @@ import { lazy, Suspense } from "react";
 import { Tabs, Spin } from "antd";
 import { useUIStore } from "../store/ui";
 import { useIsMobile } from "../hooks/useIsMobile";
+import { c } from "../styles/colors";
 import NoteView from "./NoteView";
 
 const GraphView = lazy(() => import("./GraphView"));
@@ -19,7 +20,7 @@ export default function TabBar() {
           alignItems: "center",
           justifyContent: "center",
           height: "100%",
-          color: "#6c7086",
+          color: c.textTertiary,
           fontSize: isMobile ? 14 : 16,
           padding: isMobile ? "0 24px" : 0,
           textAlign: "center",
