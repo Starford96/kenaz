@@ -37,14 +37,14 @@ clean:
 # Docker
 IMAGE ?= kenaz:$(VERSION)
 REGISTRY ?= 192.168.48.58:5005
+PLATFORM ?= linux/amd64
 
 docker-build:
-	docker build -t $(IMAGE) -f $(BUILD_DIR)/Dockerfile .
+	docker buildx build --platform $(PLATFORM) -t $(IMAGE) -f $(BUILD_DIR)/Dockerfile .
 
 # Build and push to local registry.
-docker-push: docker-build
-	docker tag $(IMAGE) $(REGISTRY)/kenaz:$(VERSION)
-	docker push $(REGISTRY)/kenaz:$(VERSION)
+docker-push:
+	docker buildx build --platform $(PLATFORM) -t $(REGISTRY)/kenaz:$(VERSION) -f $(BUILD_DIR)/Dockerfile --push .
 
 docker-up:
 	docker-compose up -d
