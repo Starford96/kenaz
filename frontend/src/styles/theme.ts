@@ -14,7 +14,7 @@ export const darkTheme: ThemeConfig = {
     colorTextSecondary: "#a6adc8",
     borderRadius: 6,
     fontFamily:
-      "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+      "'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
   },
   components: {
     Layout: {

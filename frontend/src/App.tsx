@@ -3,6 +3,7 @@ import { ConfigProvider, Layout, App as AntApp, Drawer } from "antd";
 import { darkTheme } from "./styles/theme";
 import { useUIStore } from "./store/ui";
 import { useIsMobile } from "./hooks/useIsMobile";
+import { useMediaQuery } from "./hooks/useMediaQuery";
 import { useSSE } from "./hooks/useSSE";
 import Sidebar from "./components/Sidebar";
 import TabBar from "./components/TabBar";
@@ -23,8 +24,16 @@ export default function App() {
   } = useUIStore();
 
   const isMobile = useIsMobile();
+  const canShowContextSider = useMediaQuery("(min-width: 1024px)");
 
   useSSE();
+
+  useEffect(() => {
+    if (isMobile) {
+      const { contextPanelOpen, toggleContextPanel } = useUIStore.getState();
+      if (contextPanelOpen) toggleContextPanel();
+    }
+  }, [isMobile]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -126,13 +135,14 @@ export default function App() {
               overflow: "auto",
               display: "flex",
               flexDirection: "column",
+              minWidth: 0,
             }}
           >
             <TabBar />
           </Content>
 
-          {/* Right context panel: backlinks + outline. */}
-          {contextPanelOpen && (
+          {/* Right context panel: backlinks + outline (hidden on narrow screens). */}
+          {contextPanelOpen && canShowContextSider && (
             <Sider
               width={240}
               style={{
