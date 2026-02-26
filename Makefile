@@ -6,7 +6,7 @@ LDFLAGS=-ldflags "-s -w -X main.Version=$(VERSION)"
 BUILD_FLAGS=-trimpath -installsuffix cgo -tags sqlite_fts5
 LINT_BIN_PATH?=$(shell go env GOPATH)/bin
 
-.PHONY: build build-linux run test clean docker-build docker-push docker-up docker-down docker-logs fmt lint install-lint deps help openapi openapi-check client-gen frontend-build dev-backend dev-frontend prod
+.PHONY: build build-linux run test clean docker-build docker-push docker-up docker-down docker-logs fmt lint install-lint deps help openapi openapi-check client-gen frontend-build frontend-prod dev-backend dev-frontend prod release
 
 # Build for Linux (Docker).
 build-linux:
@@ -100,9 +100,13 @@ openapi-check: openapi
 client-gen: openapi
 	cd frontend && npm run generate
 
-# Build the frontend.
+# Build the frontend (quick, uses existing node_modules).
 frontend-build:
 	cd frontend && npm run build
+
+# Clean production frontend build.
+frontend-prod:
+	cd frontend && npm ci && npm run build
 
 # Development: backend only (no frontend serving, use with dev-frontend).
 dev-backend: build
@@ -115,6 +119,14 @@ dev-frontend:
 # Production: build frontend, build backend, serve everything from backend.
 prod: frontend-build build
 	./$(BUILD_DIR)/$(BINARY_NAME) --config config/config.yaml
+
+# Full release: build frontend + backend image and push to local registry.
+release:
+	@echo "==> Running tests…"
+	@$(MAKE) test
+	@echo "==> Building and pushing kenaz:$(VERSION) to $(REGISTRY)…"
+	@$(MAKE) docker-push
+	@echo "==> Release complete: $(REGISTRY)/kenaz:$(VERSION)"
 
 # Help.
 help:
@@ -136,8 +148,10 @@ help:
 	@echo "  openapi       - Generate OpenAPI 3.1 spec from backend annotations"
 	@echo "  openapi-check - Drift check: fail if spec is out of date"
 	@echo "  client-gen    - Generate typed frontend client from OpenAPI spec"
-	@echo "  frontend-build - Build frontend"
+	@echo "  frontend-build - Build frontend (quick)"
+	@echo "  frontend-prod  - Clean production frontend build (npm ci + build)"
 	@echo "  dev-backend   - Run backend only (frontend disabled)"
 	@echo "  dev-frontend  - Run Vite dev server with HMR"
 	@echo "  prod          - Build everything and run in production mode"
+	@echo "  release       - Run tests, build Docker image, push to registry"
 	@echo "  help          - Show this help"
