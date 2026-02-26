@@ -16,7 +16,7 @@ export function useUrlSync() {
 
   // URL -> state: when the URL changes (mount, back/forward), open the tab.
   useEffect(() => {
-    const notePath = location.pathname.replace(/^\//, "");
+    const notePath = decodeURIComponent(location.pathname.replace(/^\//, ""));
     if (!notePath) return;
 
     const { activeTab, openTab } = useUIStore.getState();
@@ -41,7 +41,7 @@ export function useUrlSync() {
       if (state.activeTab === prev.activeTab) return;
       if (suppressUrlUpdate.current) return;
 
-      const currentPath = location.pathname.replace(/^\//, "");
+      const currentPath = decodeURIComponent(location.pathname.replace(/^\//, ""));
       const target = state.activeTab ? `/${state.activeTab}` : "/";
 
       if (state.activeTab !== currentPath) {
