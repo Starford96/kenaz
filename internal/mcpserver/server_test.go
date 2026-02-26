@@ -61,6 +61,10 @@ func callTool(t *testing.T, srv *Server, name string, args map[string]interface{
 		result, err = srv.createNote(ctx, req)
 	case "list_notes":
 		result, err = srv.listNotes(ctx, req)
+	case "update_note":
+		result, err = srv.updateNote(ctx, req)
+	case "delete_note":
+		result, err = srv.deleteNote(ctx, req)
 	case "get_backlinks":
 		result, err = srv.getBacklinks(ctx, req)
 	case "get_note_contract":
@@ -179,5 +183,90 @@ func TestGetBacklinks(t *testing.T) {
 	text := resultText(r)
 	if text != "a.md" {
 		t.Errorf("backlinks = %q, want a.md", text)
+	}
+}
+
+func TestUpdateNote(t *testing.T) {
+	srv, _ := testServer(t)
+
+	_ = callTool(t, srv, "create_note", map[string]interface{}{
+		"path":    "upd.md",
+		"content": "# Original\nv1",
+	})
+
+	r := callTool(t, srv, "update_note", map[string]interface{}{
+		"path":    "upd.md",
+		"content": "# Updated\nv2",
+	})
+	text := resultText(r)
+	if text != "updated: upd.md" {
+		t.Errorf("update result = %q", text)
+	}
+
+	r = callTool(t, srv, "read_note", map[string]interface{}{"path": "upd.md"})
+	text = resultText(r)
+	if text != "# Updated\nv2" {
+		t.Errorf("read after update = %q", text)
+	}
+}
+
+func TestUpdateNoteNotFound(t *testing.T) {
+	srv, _ := testServer(t)
+	r := callTool(t, srv, "update_note", map[string]interface{}{
+		"path":    "missing.md",
+		"content": "# Hello",
+	})
+	if !r.IsError {
+		t.Error("expected error for updating non-existent note")
+	}
+}
+
+func TestUpdateNoteChecksumConflict(t *testing.T) {
+	srv, _ := testServer(t)
+
+	_ = callTool(t, srv, "create_note", map[string]interface{}{
+		"path":    "cs.md",
+		"content": "# CS\noriginal",
+	})
+
+	r := callTool(t, srv, "update_note", map[string]interface{}{
+		"path":     "cs.md",
+		"content":  "# CS\nnew",
+		"checksum": "0000000000000000000000000000000000000000000000000000000000000000",
+	})
+	if !r.IsError {
+		t.Error("expected conflict error for wrong checksum")
+	}
+	text := resultText(r)
+	if !strings.Contains(text, "conflict") {
+		t.Errorf("expected conflict message, got %q", text)
+	}
+}
+
+func TestDeleteNote(t *testing.T) {
+	srv, _ := testServer(t)
+
+	_ = callTool(t, srv, "create_note", map[string]interface{}{
+		"path":    "del.md",
+		"content": "# Delete me",
+	})
+
+	r := callTool(t, srv, "delete_note", map[string]interface{}{"path": "del.md"})
+	text := resultText(r)
+	if text != "deleted: del.md" {
+		t.Errorf("delete result = %q", text)
+	}
+
+	r = callTool(t, srv, "read_note", map[string]interface{}{"path": "del.md"})
+	if !r.IsError {
+		t.Error("expected error reading deleted note")
+	}
+}
+
+func TestDeleteNoteMissing(t *testing.T) {
+	srv, _ := testServer(t)
+	r := callTool(t, srv, "delete_note", map[string]interface{}{"path": "ghost.md"})
+	if !r.IsError {
+		t.Error("expected error deleting non-existent note")
 	}
 }

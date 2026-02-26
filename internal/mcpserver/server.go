@@ -4,6 +4,8 @@ package mcpserver
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -52,6 +54,20 @@ func New(store storage.Provider, db *index.DB) *Server {
 		mcp.WithString("path", mcp.Required(), mcp.Description("Relative path for the new note (must end with .md)")),
 		mcp.WithString("content", mcp.Required(), mcp.Description("Markdown content following the Kenaz note format contract")),
 	), s.createNote)
+
+	s.mcp.AddTool(mcp.NewTool("update_note",
+		mcp.WithDescription("Update an existing Markdown note at the specified path. "+
+			"Content MUST follow the canonical note format. "+
+			"Optionally provide a checksum for optimistic concurrency (SHA-256 of current content)."),
+		mcp.WithString("path", mcp.Required(), mcp.Description("Relative path to the note")),
+		mcp.WithString("content", mcp.Required(), mcp.Description("Updated Markdown content")),
+		mcp.WithString("checksum", mcp.Description("SHA-256 checksum of the current content for conflict detection")),
+	), s.updateNote)
+
+	s.mcp.AddTool(mcp.NewTool("delete_note",
+		mcp.WithDescription("Delete an existing note at the specified path."),
+		mcp.WithString("path", mcp.Required(), mcp.Description("Relative path to the note to delete")),
+	), s.deleteNote)
 
 	s.mcp.AddTool(mcp.NewTool("get_note_contract",
 		mcp.WithDescription("Returns the canonical Kenaz note format contract. "+
@@ -151,6 +167,64 @@ func (s *Server) createNote(ctx context.Context, req mcp.CallToolRequest) (*mcp.
 	}
 
 	return mcp.NewToolResultText(fmt.Sprintf("created: %s", path)), nil
+}
+
+func (s *Server) updateNote(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	path, err := req.RequireString("path")
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	content, err := req.RequireString("content")
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+
+	existing, err := s.store.Read(path)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("not found: %s", path)), nil //nolint:nilerr // MCP tool errors are returned via CallToolResult, not as Go errors.
+	}
+
+	if cs, csErr := req.RequireString("checksum"); csErr == nil && cs != "" {
+		h := sha256.Sum256(existing)
+		currentCS := hex.EncodeToString(h[:])
+		if cs != currentCS {
+			return mcp.NewToolResultError(fmt.Sprintf("conflict: checksum mismatch for %s", path)), nil
+		}
+	}
+
+	data := []byte(content)
+	if err := s.store.Write(path, data); err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+
+	res, _ := parser.Parse(data)
+	if res != nil {
+		tags := res.Tags
+		if tags == nil {
+			tags = []string{}
+		}
+		h := sha256.Sum256(data)
+		_ = s.db.UpsertNote(index.NoteRow{
+			Path:     path,
+			Title:    res.Title,
+			Checksum: hex.EncodeToString(h[:]),
+			Tags:     tags,
+		}, res.Body, res.Links)
+	}
+
+	return mcp.NewToolResultText(fmt.Sprintf("updated: %s", path)), nil
+}
+
+func (s *Server) deleteNote(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	path, err := req.RequireString("path")
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	if delErr := s.store.Delete(path); delErr != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("not found: %s", path)), nil //nolint:nilerr // MCP tool errors are returned via CallToolResult, not as Go errors.
+	}
+	_ = s.db.DeleteNote(path)
+	return mcp.NewToolResultText(fmt.Sprintf("deleted: %s", path)), nil
 }
 
 func (s *Server) listNotes(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
