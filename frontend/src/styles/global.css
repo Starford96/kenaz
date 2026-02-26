@@ -323,6 +323,24 @@ body,
   color: #a78bfa;
 }
 
+/* ── Outline items (context panel) ──────────────────────── */
+.outline-item {
+  cursor: pointer;
+  color: #a6adc8;
+  border-radius: 4px;
+  padding: 1px 4px;
+  margin: 0 -4px;
+  transition: color 0.15s, background 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.outline-item:hover {
+  color: #cdd6f4;
+  background: rgba(124, 58, 237, 0.08);
+}
+.outline-item:active {
+  background: rgba(124, 58, 237, 0.15);
+}
+
 /* ── Drawer overrides ────────────────────────────────────── */
 .kenaz-drawer .ant-drawer-body {
   background: #181825 !important;

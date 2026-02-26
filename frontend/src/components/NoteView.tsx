@@ -8,6 +8,7 @@ import remarkGfm from "remark-gfm";
 import { getNote, updateNote, listNotes, type NoteDetail } from "../api/notes";
 import { useUIStore } from "../store/ui";
 import { useIsMobile } from "../hooks/useIsMobile";
+import { slugify, extractText } from "../utils/slugify";
 import MarkdownEditor from "./MarkdownEditor";
 
 const { Text } = Typography;
@@ -249,6 +250,12 @@ export default function NoteView({ path }: Props) {
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
               components={{
+                h1: ({ children }) => <h1 id={slugify(extractText(children))}>{children}</h1>,
+                h2: ({ children }) => <h2 id={slugify(extractText(children))}>{children}</h2>,
+                h3: ({ children }) => <h3 id={slugify(extractText(children))}>{children}</h3>,
+                h4: ({ children }) => <h4 id={slugify(extractText(children))}>{children}</h4>,
+                h5: ({ children }) => <h5 id={slugify(extractText(children))}>{children}</h5>,
+                h6: ({ children }) => <h6 id={slugify(extractText(children))}>{children}</h6>,
                 a: ({ href, children }) => {
                   const rawHref = String(href ?? "").trim();
 

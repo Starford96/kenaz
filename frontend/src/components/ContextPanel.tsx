@@ -3,6 +3,7 @@ import { Typography, List, Divider, Spin } from "antd";
 import { LinkOutlined, OrderedListOutlined } from "@ant-design/icons";
 import { getNote } from "../api/notes";
 import { useUIStore } from "../store/ui";
+import { slugify } from "../utils/slugify";
 
 const { Text } = Typography;
 
@@ -70,11 +71,27 @@ export default function ContextPanel() {
           {headings.map((h, i) => (
             <div
               key={i}
+              role="link"
+              tabIndex={0}
+              className="outline-item"
+              onClick={() => {
+                const el = document.getElementById(slugify(h.text));
+                if (el) {
+                  const { setMobileDrawer } = useUIStore.getState();
+                  setMobileDrawer(null);
+                  setTimeout(() => el.scrollIntoView({ behavior: "smooth", block: "start" }), 150);
+                }
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  document.getElementById(slugify(h.text))?.scrollIntoView({ behavior: "smooth", block: "start" });
+                }
+              }}
               style={{
                 paddingLeft: (h.level - 1) * 12,
                 fontSize: 13,
                 lineHeight: "22px",
-                color: "#a6adc8",
               }}
             >
               {h.text}
