@@ -82,9 +82,13 @@ export default function App() {
                   fontWeight: 600,
                   color: c.textPrimary,
                   letterSpacing: 0.5,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
                 }}
               >
-                ᚲ Kenaz
+                <img src="/favicon.png" alt="" style={{ width: 22, height: 22, borderRadius: 4 }} />
+                Kenaz
               </div>
               <Sidebar />
             </Drawer>
@@ -129,9 +133,13 @@ export default function App() {
                 fontWeight: 600,
                 color: c.textPrimary,
                 letterSpacing: 0.5,
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
               }}
             >
-              ᚲ Kenaz
+              <img src="/favicon.png" alt="" style={{ width: 20, height: 20, borderRadius: 4 }} />
+              Kenaz
             </div>
             <Sidebar />
           </Sider>
