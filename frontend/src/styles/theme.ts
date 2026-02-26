@@ -26,5 +26,9 @@ export const darkTheme: ThemeConfig = {
       darkItemBg: "#181825",
       darkSubMenuItemBg: "#181825",
     },
+    Drawer: {
+      colorBgElevated: "#181825",
+      colorBgMask: "rgba(0, 0, 0, 0.45)",
+    },
   },
 };

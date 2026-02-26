@@ -212,3 +212,189 @@ body,
   overflow: hidden !important;
   padding: 0 !important;
 }
+
+/* ── Mobile shell layout ─────────────────────────────────── */
+.mobile-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  overflow: hidden;
+  background: #1e1e2e;
+}
+
+.mobile-content {
+  flex: 1;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ── Mobile header ───────────────────────────────────────── */
+.mobile-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 48px;
+  padding: 0 12px;
+  background: rgba(30, 30, 46, 0.82);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid #3a3a4e;
+  flex-shrink: 0;
+}
+
+.mobile-header__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #a6adc8;
+  font-size: 18px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s;
+}
+.mobile-header__btn:active {
+  background: rgba(124, 58, 237, 0.15);
+}
+
+.mobile-header__title {
+  flex: 1;
+  text-align: center;
+  font-size: 14px !important;
+  color: #cdd6f4 !important;
+  line-height: 48px !important;
+}
+
+/* ── Bottom action bar ───────────────────────────────────── */
+.bottom-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 100;
+  display: flex;
+  justify-content: space-around;
+  align-items: stretch;
+  height: calc(56px + env(safe-area-inset-bottom, 0px));
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  background: rgba(24, 24, 37, 0.88);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-top: 1px solid #3a3a4e;
+  flex-shrink: 0;
+}
+
+.bottom-bar__btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border: none;
+  background: transparent;
+  color: #6c7086;
+  font-size: 18px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 0.15s, transform 0.1s;
+}
+.bottom-bar__btn span {
+  font-size: 10px;
+  letter-spacing: 0.3px;
+}
+.bottom-bar__btn:active {
+  transform: scale(0.92);
+  color: #a6adc8;
+}
+.bottom-bar__btn--accent {
+  color: #7c3aed;
+}
+.bottom-bar__btn--accent:active {
+  color: #a78bfa;
+}
+
+/* ── Drawer overrides ────────────────────────────────────── */
+.kenaz-drawer .ant-drawer-body {
+  background: #181825 !important;
+}
+.kenaz-drawer .ant-drawer-content {
+  background: #181825 !important;
+}
+.kenaz-drawer .ant-drawer-mask {
+  background: rgba(0, 0, 0, 0.45) !important;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+/* ── Mobile search palette ───────────────────────────────── */
+.kenaz-palette--mobile .ant-modal-content {
+  border-radius: 0 !important;
+  border: none !important;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Mobile tabs ─────────────────────────────────────────── */
+.kenaz-tabs--mobile .ant-tabs-nav {
+  margin-bottom: 0 !important;
+}
+.kenaz-tabs--mobile .ant-tabs-nav-list {
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch;
+}
+.kenaz-tabs--mobile .ant-tabs-tab {
+  font-size: 12px !important;
+  padding: 6px 10px !important;
+  max-width: 140px;
+}
+.kenaz-tabs--mobile .ant-tabs-tab .ant-tabs-tab-btn {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Mobile responsive typography ────────────────────────── */
+@media (max-width: 767px) {
+  .md-preview {
+    font-size: 14px;
+    line-height: 1.65;
+  }
+  .md-preview h1 {
+    font-size: 1.5em;
+  }
+  .md-preview h2 {
+    font-size: 1.25em;
+  }
+  .md-preview h3 {
+    font-size: 1.1em;
+  }
+  .md-preview pre {
+    padding: 10px 12px;
+    font-size: 12px;
+  }
+  .md-preview table {
+    font-size: 13px;
+  }
+  .md-preview th,
+  .md-preview td {
+    padding: 4px 8px;
+  }
+  .md-preview blockquote {
+    margin-left: 0;
+    margin-right: 0;
+  }
+
+  ::-webkit-scrollbar {
+    display: none;
+  }
+  * {
+    scrollbar-width: none;
+  }
+}

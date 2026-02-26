@@ -11,6 +11,7 @@ import {
 import type { DataNode } from "antd/es/tree";
 import { listNotes, type NoteListItem } from "../api/notes";
 import { useUIStore } from "../store/ui";
+import { useIsMobile } from "../hooks/useIsMobile";
 import CreateNoteModal from "./CreateNoteModal";
 
 const { Search } = Input;
@@ -57,7 +58,8 @@ function buildTree(notes: NoteListItem[]): DataNode[] {
 }
 
 export default function Sidebar() {
-  const { openTab, setSearchOpen } = useUIStore();
+  const { openTab, setSearchOpen, setMobileDrawer } = useUIStore();
+  const isMobile = useIsMobile();
   const [createOpen, setCreateOpen] = useState(false);
 
   // Listen for create-note command from palette.
@@ -89,7 +91,10 @@ export default function Sidebar() {
           <Button
             size="small"
             icon={<ApartmentOutlined />}
-            onClick={() => openTab("__graph__", "Graph")}
+            onClick={() => {
+              openTab("__graph__", "Graph");
+              if (isMobile) setMobileDrawer(null);
+            }}
             title="Knowledge graph"
           />
           <Button
@@ -114,6 +119,7 @@ export default function Sidebar() {
               const node = info.node;
               if (node.isLeaf) {
                 openTab(node.key as string, node.title as string);
+                if (isMobile) setMobileDrawer(null);
               }
             }}
             style={{ background: "transparent" }}

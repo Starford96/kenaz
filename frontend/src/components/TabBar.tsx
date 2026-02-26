@@ -1,6 +1,7 @@
 import { lazy, Suspense } from "react";
 import { Tabs, Spin } from "antd";
 import { useUIStore } from "../store/ui";
+import { useIsMobile } from "../hooks/useIsMobile";
 import NoteView from "./NoteView";
 
 const GraphView = lazy(() => import("./GraphView"));
@@ -8,6 +9,7 @@ const GraphView = lazy(() => import("./GraphView"));
 /** Tabbed note viewer pane. */
 export default function TabBar() {
   const { tabs, activeTab, setActiveTab, closeTab } = useUIStore();
+  const isMobile = useIsMobile();
 
   if (tabs.length === 0) {
     return (
@@ -18,10 +20,14 @@ export default function TabBar() {
           justifyContent: "center",
           height: "100%",
           color: "#6c7086",
-          fontSize: 16,
+          fontSize: isMobile ? 14 : 16,
+          padding: isMobile ? "0 24px" : 0,
+          textAlign: "center",
         }}
       >
-        Open a note from the sidebar or press ⌘K to search
+        {isMobile
+          ? "Tap Files to open a note"
+          : "Open a note from the sidebar or press ⌘K to search"}
       </div>
     );
   }
@@ -36,6 +42,7 @@ export default function TabBar() {
       }}
       hideAdd
       size="small"
+      className={isMobile ? "kenaz-tabs--mobile" : undefined}
       style={{ height: "100%" }}
       items={tabs.map((t) => ({
         key: t.path,

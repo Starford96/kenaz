@@ -11,6 +11,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { searchNotes, listNotes, type SearchResult } from "../api/notes";
 import { useUIStore } from "../store/ui";
+import { useIsMobile } from "../hooks/useIsMobile";
 
 const { Text } = Typography;
 
@@ -32,6 +33,7 @@ export default function SearchModal() {
     toggleSidebar,
     toggleContextPanel,
   } = useUIStore();
+  const isMobile = useIsMobile();
   const [query, setQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -185,13 +187,13 @@ export default function SearchModal() {
       }}
       footer={null}
       closable={false}
-      width={560}
+      width={isMobile ? "100vw" : 560}
       styles={{
         body: { padding: 0 },
         wrapper: {},
       }}
-      className="kenaz-palette"
-      style={{ top: 80 }}
+      className={`kenaz-palette${isMobile ? " kenaz-palette--mobile" : ""}`}
+      style={isMobile ? { top: 0, margin: 0, maxWidth: "100vw", padding: 0 } : { top: 80 }}
     >
       {/* Search input */}
       <div
@@ -218,7 +220,7 @@ export default function SearchModal() {
       </div>
 
       {/* Results list */}
-      <div style={{ maxHeight: 380, overflow: "auto" }}>
+      <div style={{ maxHeight: isMobile ? "calc(100dvh - 120px)" : 380, overflow: "auto" }}>
         {items.length > 0 ? (
           <div style={{ padding: "4px 0" }}>
             {items.map((item, idx) => (
@@ -229,7 +231,7 @@ export default function SearchModal() {
                   display: "flex",
                   alignItems: "center",
                   gap: 10,
-                  padding: "8px 16px",
+                  padding: isMobile ? "12px 16px" : "8px 16px",
                   cursor: "pointer",
                   background:
                     idx === selected ? "#3a3a5e" : "transparent",
@@ -296,21 +298,23 @@ export default function SearchModal() {
         ) : null}
       </div>
 
-      {/* Footer hint */}
-      <div
-        style={{
-          padding: "6px 16px",
-          borderTop: "1px solid #3a3a4e",
-          display: "flex",
-          gap: 16,
-          fontSize: 11,
-          color: "#6c7086",
-        }}
-      >
-        <span>↑↓ navigate</span>
-        <span>↵ select</span>
-        <span>esc close</span>
-      </div>
+      {/* Footer hint (desktop only) */}
+      {!isMobile && (
+        <div
+          style={{
+            padding: "6px 16px",
+            borderTop: "1px solid #3a3a4e",
+            display: "flex",
+            gap: 16,
+            fontSize: 11,
+            color: "#6c7086",
+          }}
+        >
+          <span>↑↓ navigate</span>
+          <span>↵ select</span>
+          <span>esc close</span>
+        </div>
+      )}
     </Modal>
   );
 }

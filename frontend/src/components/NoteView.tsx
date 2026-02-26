@@ -7,6 +7,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { getNote, updateNote, listNotes, type NoteDetail } from "../api/notes";
 import { useUIStore } from "../store/ui";
+import { useIsMobile } from "../hooks/useIsMobile";
 import MarkdownEditor from "./MarkdownEditor";
 
 const { Text } = Typography;
@@ -19,6 +20,7 @@ interface Props {
 export default function NoteView({ path }: Props) {
   const { openTab } = useUIStore();
   const { message } = App.useApp();
+  const isMobile = useIsMobile();
   const queryClient = useQueryClient();
 
   const [editing, setEditing] = useState(false);
@@ -183,26 +185,28 @@ export default function NoteView({ path }: Props) {
       {/* Toolbar */}
       <div
         style={{
-          padding: "6px 24px",
+          padding: isMobile ? "6px 12px" : "6px 24px",
           borderBottom: "1px solid #3a3a4e",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
           flexShrink: 0,
+          gap: 8,
+          flexWrap: "wrap",
         }}
       >
-        <Space size="small">
-          <Text strong style={{ fontSize: 14 }}>
+        <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+          <Text strong ellipsis style={{ fontSize: isMobile ? 13 : 14, maxWidth: isMobile ? "60vw" : undefined }}>
             {note.title || path}
           </Text>
           {note.tags.length > 0 &&
             note.tags.map((t) => (
-              <Tag key={t} color="purple" style={{ margin: 0 }}>
+              <Tag key={t} color="purple" style={{ margin: 0, fontSize: 11 }}>
                 {t}
               </Tag>
             ))}
-        </Space>
-        <Space size="small">
+        </div>
+        <Space size="small" style={{ flexShrink: 0 }}>
           {editing && (
             <Button
               size="small"
@@ -236,7 +240,10 @@ export default function NoteView({ path }: Props) {
         ) : (
           <div
             className="md-preview"
-            style={{ padding: "16px 24px", maxWidth: 800 }}
+            style={{
+              padding: isMobile ? "12px 16px" : "16px 24px",
+              maxWidth: isMobile ? undefined : 800,
+            }}
             onClickCapture={handlePreviewClickCapture}
           >
             <ReactMarkdown

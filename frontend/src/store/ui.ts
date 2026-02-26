@@ -25,6 +25,10 @@ interface UIState {
   // Quick search / command palette.
   searchOpen: boolean;
   setSearchOpen: (open: boolean) => void;
+
+  // Mobile drawer (only one open at a time).
+  mobileDrawer: "sidebar" | "context" | null;
+  setMobileDrawer: (drawer: "sidebar" | "context" | null) => void;
 }
 
 export const useUIStore = create<UIState>()(
@@ -62,6 +66,9 @@ export const useUIStore = create<UIState>()(
 
       searchOpen: false,
       setSearchOpen: (open) => set({ searchOpen: open }),
+
+      mobileDrawer: null,
+      setMobileDrawer: (drawer) => set({ mobileDrawer: drawer }),
     }),
     {
       name: "kenaz-ui",
