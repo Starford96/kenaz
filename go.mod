@@ -8,8 +8,8 @@ require (
 	github.com/go-ozzo/ozzo-validation/v4 v4.3.0
 	github.com/joho/godotenv v1.5.1
 	github.com/mark3labs/mcp-go v0.44.0
-	github.com/mattn/go-sqlite3 v1.14.24
-	github.com/urfave/cli/v3 v3.0.0-beta1
+	github.com/mattn/go-sqlite3 v1.14.34
+	github.com/urfave/cli/v3 v3.6.2
 	golang.org/x/sync v0.11.0
 	gopkg.in/yaml.v3 v3.0.1
 )

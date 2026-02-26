@@ -1,6 +1,10 @@
 package api
 
-import "time"
+import (
+	"time"
+
+	"github.com/starford/kenaz/internal/noteservice"
+)
 
 // CreateNoteRequest is the request body for creating a note.
 type CreateNoteRequest struct {
@@ -12,6 +16,12 @@ type CreateNoteRequest struct {
 type UpdateNoteRequest struct {
 	Content string `json:"content" example:"# Updated\nContent" validate:"required"`
 }
+
+// NoteDetail is the full note response type (aliased from the domain layer).
+type NoteDetail = noteservice.NoteDetail
+
+// NoteListItem is a lightweight item in a list response (aliased from the domain layer).
+type NoteListItem = noteservice.NoteListItem
 
 // NoteListResponse wraps paginated note listings.
 type NoteListResponse struct {

@@ -1,4 +1,4 @@
-import { useRef, useCallback, useEffect } from "react";
+import { useRef, useCallback, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Spin, Typography } from "antd";
 import ForceGraph2D from "react-force-graph-2d";
@@ -92,13 +92,16 @@ export default function GraphView() {
       </div>
     );
 
-  const graphData = {
-    nodes: data.nodes.map((n) => ({ id: n.id, title: n.title })) as GraphNode[],
-    links: data.links.map((l) => ({
-      source: l.source,
-      target: l.target,
-    })) as GraphLink[],
-  };
+  const graphData = useMemo(
+    () => ({
+      nodes: data.nodes.map((n) => ({ id: n.id, title: n.title })) as GraphNode[],
+      links: data.links.map((l) => ({
+        source: l.source,
+        target: l.target,
+      })) as GraphLink[],
+    }),
+    [data],
+  );
 
   return (
     <div

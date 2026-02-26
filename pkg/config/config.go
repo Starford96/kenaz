@@ -2,7 +2,6 @@
 package config
 
 import (
-	"errors"
 	"fmt"
 	"os"
 
@@ -34,22 +33,4 @@ func Load[T any](filename string, target *T) error {
 	}
 
 	return nil
-}
-
-// LoadWithDefaults loads configuration with fallback to a default file.
-func LoadWithDefaults[T any](filename, defaultFile string, target *T) error {
-	if _, err := os.Stat(filename); errors.Is(err, os.ErrNotExist) {
-		if defaultFile != "" {
-			return Load(defaultFile, target)
-		}
-		return fmt.Errorf("config file not found: %s", filename)
-	}
-	return Load(filename, target)
-}
-
-// MustLoad loads configuration and panics on failure.
-func MustLoad[T any](filename string, target *T) {
-	if err := Load(filename, target); err != nil {
-		panic(fmt.Sprintf("failed to load config: %v", err))
-	}
 }

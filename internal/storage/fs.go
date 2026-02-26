@@ -1,14 +1,13 @@
 package storage
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/starford/kenaz/internal/checksum"
 	"github.com/starford/kenaz/internal/models"
 )
 
@@ -81,7 +80,7 @@ func (f *FS) List(dir string) ([]models.NoteMetadata, error) {
 		rel, _ := filepath.Rel(f.root, p)
 		out = append(out, models.NoteMetadata{
 			Path:      rel,
-			Checksum:  checksum(data),
+			Checksum:  checksum.Sum(data),
 			UpdatedAt: info.ModTime(),
 		})
 		return nil
@@ -179,7 +178,3 @@ func (f *FS) Move(oldPath, newPath string) error {
 	return nil
 }
 
-func checksum(data []byte) string {
-	h := sha256.Sum256(data)
-	return hex.EncodeToString(h[:])
-}

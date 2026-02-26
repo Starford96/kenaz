@@ -34,6 +34,19 @@ func watcherTestEnv(t *testing.T) (string, storage.Provider, *DB) {
 	return vaultDir, store, db
 }
 
+// eventually polls fn every tick until it returns true or timeout elapses.
+func eventually(t *testing.T, timeout, tick time.Duration, fn func() bool, msg string) {
+	t.Helper()
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if fn() {
+			return
+		}
+		time.Sleep(tick)
+	}
+	t.Error(msg)
+}
+
 func TestWatcher_NewFileIndexed(t *testing.T) {
 	vaultDir, store, db := watcherTestEnv(t)
 	logger := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
@@ -49,28 +62,28 @@ func TestWatcher_NewFileIndexed(t *testing.T) {
 		events = append(events, kind+":"+path)
 		mu.Unlock()
 	})
-	time.Sleep(100 * time.Millisecond) // let watcher start
 
-	// Create a file.
+	eventually(t, 2*time.Second, 50*time.Millisecond, func() bool {
+		return true // wait for watcher startup
+	}, "")
+
 	_ = os.WriteFile(filepath.Join(vaultDir, "new.md"), []byte("# New"), 0o644)
-	time.Sleep(300 * time.Millisecond)
 
-	cs, _ := db.GetChecksum("new.md")
-	if cs == "" {
-		t.Error("new file not indexed by watcher")
-	}
+	eventually(t, 5*time.Second, 50*time.Millisecond, func() bool {
+		cs, _ := db.GetChecksum("new.md")
+		return cs != ""
+	}, "new file not indexed by watcher")
 
-	mu.Lock()
-	found := false
-	for _, e := range events {
-		if e == "created:new.md" {
-			found = true
+	eventually(t, 2*time.Second, 50*time.Millisecond, func() bool {
+		mu.Lock()
+		defer mu.Unlock()
+		for _, e := range events {
+			if e == "created:new.md" {
+				return true
+			}
 		}
-	}
-	mu.Unlock()
-	if !found {
-		t.Errorf("expected created:new.md callback, got %v", events)
-	}
+		return false
+	}, "expected created:new.md callback")
 }
 
 func TestWatcher_NewDirWatched(t *testing.T) {
@@ -80,35 +93,29 @@ func TestWatcher_NewDirWatched(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	var mu sync.Mutex
-	var events []string
+	go Watch(ctx, db, store, vaultDir, logger, nil)
 
-	go Watch(ctx, db, store, vaultDir, logger, func(kind, path string) {
-		mu.Lock()
-		events = append(events, kind+":"+path)
-		mu.Unlock()
-	})
 	time.Sleep(100 * time.Millisecond)
 
-	// Create a new subdirectory, then add a file in it.
 	subDir := filepath.Join(vaultDir, "subdir")
 	_ = os.MkdirAll(subDir, 0o755)
-	time.Sleep(150 * time.Millisecond) // let watcher pick up new dir
+
+	eventually(t, 2*time.Second, 50*time.Millisecond, func() bool {
+		return true
+	}, "")
 
 	_ = os.WriteFile(filepath.Join(subDir, "deep.md"), []byte("# Deep"), 0o644)
-	time.Sleep(300 * time.Millisecond)
 
-	cs, _ := db.GetChecksum(filepath.Join("subdir", "deep.md"))
-	if cs == "" {
-		t.Error("file in new subdir not indexed by watcher")
-	}
+	eventually(t, 5*time.Second, 50*time.Millisecond, func() bool {
+		cs, _ := db.GetChecksum(filepath.Join("subdir", "deep.md"))
+		return cs != ""
+	}, "file in new subdir not indexed by watcher")
 }
 
 func TestWatcher_DeleteRemovesFromIndex(t *testing.T) {
 	vaultDir, store, db := watcherTestEnv(t)
 	logger := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 
-	// Pre-create a file.
 	_ = os.WriteFile(filepath.Join(vaultDir, "del.md"), []byte("# Delete Me"), 0o644)
 	Sync(db, store, logger)
 
@@ -124,19 +131,17 @@ func TestWatcher_DeleteRemovesFromIndex(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	_ = os.Remove(filepath.Join(vaultDir, "del.md"))
-	time.Sleep(300 * time.Millisecond)
 
-	cs, _ = db.GetChecksum("del.md")
-	if cs != "" {
-		t.Error("deleted file still in index")
-	}
+	eventually(t, 5*time.Second, 50*time.Millisecond, func() bool {
+		cs, _ := db.GetChecksum("del.md")
+		return cs == ""
+	}, "deleted file still in index")
 }
 
 func TestWatcher_RenameReconciles(t *testing.T) {
 	vaultDir, store, db := watcherTestEnv(t)
 	logger := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 
-	// Pre-create a file.
 	_ = os.WriteFile(filepath.Join(vaultDir, "old.md"), []byte("# Rename"), 0o644)
 	Sync(db, store, logger)
 
@@ -146,18 +151,11 @@ func TestWatcher_RenameReconciles(t *testing.T) {
 	go Watch(ctx, db, store, vaultDir, logger, nil)
 	time.Sleep(100 * time.Millisecond)
 
-	// Rename old.md → renamed.md.
 	_ = os.Rename(filepath.Join(vaultDir, "old.md"), filepath.Join(vaultDir, "renamed.md"))
-	// Wait for rename event + reconciliation timer (200ms) + processing.
-	time.Sleep(600 * time.Millisecond)
 
-	oldCS, _ := db.GetChecksum("old.md")
-	if oldCS != "" {
-		t.Error("old path should be removed from index after rename")
-	}
-
-	newCS, _ := db.GetChecksum("renamed.md")
-	if newCS == "" {
-		t.Error("renamed file should be indexed under new path")
-	}
+	eventually(t, 5*time.Second, 50*time.Millisecond, func() bool {
+		oldCS, _ := db.GetChecksum("old.md")
+		newCS, _ := db.GetChecksum("renamed.md")
+		return oldCS == "" && newCS != ""
+	}, "rename reconciliation failed: old path should be removed and new path indexed")
 }

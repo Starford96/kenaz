@@ -1,7 +1,9 @@
 package index
 
 import (
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 )
@@ -53,7 +55,9 @@ func (db *DB) UpsertNote(n NoteRow, body string, links []string) error {
 	}
 
 	// Replace links: delete old then bulk insert.
-	_, _ = tx.Exec(`DELETE FROM links WHERE source = ?`, n.Path)
+	if _, err := tx.Exec(`DELETE FROM links WHERE source = ?`, n.Path); err != nil {
+		return fmt.Errorf("index: delete old links: %w", err)
+	}
 	if len(links) > 0 {
 		stmt, err := tx.Prepare(`INSERT OR IGNORE INTO links (source, target, type) VALUES (?, ?, 'inline')`)
 		if err != nil {
@@ -78,9 +82,15 @@ func (db *DB) DeleteNote(path string) error {
 	}
 	defer tx.Rollback() //nolint:errcheck
 
-	ftsDelete(tx, path)
-	_, _ = tx.Exec(`DELETE FROM links WHERE source = ?`, path)
-	_, _ = tx.Exec(`DELETE FROM notes WHERE path = ?`, path)
+	if err := ftsDelete(tx, path); err != nil {
+		return fmt.Errorf("index: fts delete: %w", err)
+	}
+	if _, err := tx.Exec(`DELETE FROM links WHERE source = ?`, path); err != nil {
+		return fmt.Errorf("index: delete links: %w", err)
+	}
+	if _, err := tx.Exec(`DELETE FROM notes WHERE path = ?`, path); err != nil {
+		return fmt.Errorf("index: delete note: %w", err)
+	}
 
 	return tx.Commit()
 }
@@ -90,9 +100,30 @@ func (db *DB) GetChecksum(path string) (string, error) {
 	var cs string
 	err := db.conn.QueryRow(`SELECT checksum FROM notes WHERE path = ?`, path).Scan(&cs)
 	if err != nil {
-		return "", nil // not found is fine
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", nil
+		}
+		return "", fmt.Errorf("index: get checksum %s: %w", path, err)
 	}
 	return cs, nil
+}
+
+// AllChecksums returns a map of path→checksum for every indexed note.
+func (db *DB) AllChecksums() (map[string]string, error) {
+	rows, err := db.conn.Query(`SELECT path, checksum FROM notes`)
+	if err != nil {
+		return nil, fmt.Errorf("index: all checksums: %w", err)
+	}
+	defer rows.Close()
+	out := make(map[string]string)
+	for rows.Next() {
+		var p, cs string
+		if err := rows.Scan(&p, &cs); err != nil {
+			return nil, err
+		}
+		out[p] = cs
+	}
+	return out, rows.Err()
 }
 
 // AllPaths returns every indexed note path.
@@ -121,12 +152,13 @@ func (db *DB) GetNote(path string) (*NoteRow, error) {
 		`SELECT path, title, checksum, tags, updated_at FROM notes WHERE path = ?`, path,
 	).Scan(&n.Path, &n.Title, &n.Checksum, &tagsJSON, &n.UpdatedAt)
 	if err != nil {
-		return nil, nil // not found
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("index: get note %s: %w", path, err)
 	}
 	_ = json.Unmarshal([]byte(tagsJSON), &n.Tags)
-	if n.Tags == nil {
-		n.Tags = []string{}
-	}
+	n.Tags = nonNilSlice(n.Tags)
 	return &n, nil
 }
 
@@ -146,7 +178,7 @@ func (db *DB) ListNotes(limit, offset int, tag, sort string) ([]NoteRow, int, er
 	}
 
 	where := ""
-	args := []interface{}{}
+	args := []any{}
 	if tag != "" {
 		where = `WHERE tags LIKE ?`
 		args = append(args, `%"`+tag+`"%`)
@@ -175,9 +207,7 @@ func (db *DB) ListNotes(limit, offset int, tag, sort string) ([]NoteRow, int, er
 			return nil, 0, err
 		}
 		_ = json.Unmarshal([]byte(tagsJSON), &n.Tags)
-		if n.Tags == nil {
-			n.Tags = []string{}
-		}
+		n.Tags = nonNilSlice(n.Tags)
 		out = append(out, n)
 	}
 	return out, total, rows.Err()
@@ -258,4 +288,11 @@ func (db *DB) Backlinks(target string) ([]string, error) {
 		out = append(out, s)
 	}
 	return out, rows.Err()
+}
+
+func nonNilSlice[T any](s []T) []T {
+	if s == nil {
+		return []T{}
+	}
+	return s
 }

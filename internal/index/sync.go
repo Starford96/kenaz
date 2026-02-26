@@ -1,10 +1,9 @@
 package index
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"log/slog"
 
+	"github.com/starford/kenaz/internal/checksum"
 	"github.com/starford/kenaz/internal/parser"
 	"github.com/starford/kenaz/internal/storage"
 )
@@ -18,7 +17,7 @@ func Sync(db *DB, store storage.Provider, logger *slog.Logger) error {
 		return err
 	}
 
-	indexed, err := db.AllPaths()
+	checksums, err := db.AllChecksums()
 	if err != nil {
 		return err
 	}
@@ -27,12 +26,8 @@ func Sync(db *DB, store storage.Provider, logger *slog.Logger) error {
 	for _, m := range metas {
 		disk[m.Path] = struct{}{}
 
-		existing, err := db.GetChecksum(m.Path)
-		if err != nil {
-			return err
-		}
-		if existing == m.Checksum {
-			continue // unchanged
+		if checksums[m.Path] == m.Checksum {
+			continue
 		}
 
 		data, err := store.Read(m.Path)
@@ -48,7 +43,7 @@ func Sync(db *DB, store storage.Provider, logger *slog.Logger) error {
 	}
 
 	// Remove stale entries.
-	for p := range indexed {
+	for p := range checksums {
 		if _, ok := disk[p]; !ok {
 			if err := db.DeleteNote(p); err != nil {
 				logger.Warn("sync: delete failed", slog.String("path", p), slog.String("error", err.Error()))
@@ -67,8 +62,7 @@ func indexFile(db *DB, path string, data []byte) error {
 	if err != nil {
 		return err
 	}
-	h := sha256.Sum256(data)
-	cs := hex.EncodeToString(h[:])
+	cs := checksum.Sum(data)
 
 	row := NoteRow{
 		Path:     path,

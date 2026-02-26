@@ -2,22 +2,26 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/starford/kenaz/internal/apperr"
+	"github.com/starford/kenaz/internal/noteservice"
 )
 
 // Handler holds API route handlers.
 type Handler struct {
-	svc *Service
+	svc *noteservice.Service
 }
 
 // NewHandler creates a new Handler.
-func NewHandler(svc *Service) *Handler {
+func NewHandler(svc *noteservice.Service) *Handler {
 	return &Handler{svc: svc}
 }
 
@@ -54,12 +58,13 @@ func (h *Handler) ListNotes(w http.ResponseWriter, r *http.Request) {
 	tag := q.Get("tag")
 	sort := q.Get("sort")
 
-	items, total, err := h.svc.ListNotes(limit, offset, tag, sort)
+	items, total, err := h.svc.ListNotes(r.Context(), limit, offset, tag, sort)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, errorBody(err.Error()))
+		slog.Error("list notes failed", slog.String("error", err.Error()))
+		writeJSON(w, http.StatusInternalServerError, errorBody("internal error"))
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]interface{}{
+	writeJSON(w, http.StatusOK, map[string]any{
 		"notes": items,
 		"total": total,
 	})
@@ -81,9 +86,14 @@ func (h *Handler) GetNote(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, errorBody("path is required"))
 		return
 	}
-	note, err := h.svc.GetNote(path)
+	note, err := h.svc.GetNote(r.Context(), path)
 	if err != nil {
-		writeJSON(w, http.StatusNotFound, errorBody("not found"))
+		if errors.Is(err, apperr.ErrNotFound) {
+			writeJSON(w, http.StatusNotFound, errorBody("not found"))
+		} else {
+			slog.Error("get note failed", slog.String("path", path), slog.String("error", err.Error()))
+			writeJSON(w, http.StatusInternalServerError, errorBody("internal error"))
+		}
 		return
 	}
 	writeJSON(w, http.StatusOK, note)
@@ -102,6 +112,7 @@ func (h *Handler) GetNote(w http.ResponseWriter, r *http.Request) {
 //	@Security		BearerAuth
 //	@Router			/notes [post]
 func (h *Handler) CreateNote(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, 10<<20)
 	var req struct {
 		Path    string `json:"path"`
 		Content string `json:"content"`
@@ -114,13 +125,14 @@ func (h *Handler) CreateNote(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, errorBody("path and content are required"))
 		return
 	}
-	note, err := h.svc.CreateNote(req.Path, []byte(req.Content))
+	note, err := h.svc.CreateNote(r.Context(), req.Path, []byte(req.Content))
 	if err != nil {
-		if err.Error() == "already exists" {
+		if errors.Is(err, apperr.ErrAlreadyExists) {
 			writeJSON(w, http.StatusConflict, errorBody("note already exists"))
-			return
+		} else {
+			slog.Error("create note failed", slog.String("path", req.Path), slog.String("error", err.Error()))
+			writeJSON(w, http.StatusInternalServerError, errorBody("internal error"))
 		}
-		writeJSON(w, http.StatusInternalServerError, errorBody(err.Error()))
 		return
 	}
 	writeJSON(w, http.StatusCreated, note)
@@ -142,6 +154,7 @@ func (h *Handler) CreateNote(w http.ResponseWriter, r *http.Request) {
 //	@Security		BearerAuth
 //	@Router			/notes/{path} [put]
 func (h *Handler) UpdateNote(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, 10<<20)
 	path := notePath(r)
 	if path == "" {
 		writeJSON(w, http.StatusBadRequest, errorBody("path is required"))
@@ -169,15 +182,16 @@ func (h *Handler) UpdateNote(w http.ResponseWriter, r *http.Request) {
 	// Strip surrounding quotes if present (standard ETag format).
 	ifMatch = strings.Trim(ifMatch, `"`)
 
-	note, err := h.svc.UpdateNote(path, []byte(req.Content), ifMatch)
+	note, err := h.svc.UpdateNote(r.Context(), path, []byte(req.Content), ifMatch)
 	if err != nil {
-		switch err.Error() {
-		case "not found":
+		switch {
+		case errors.Is(err, apperr.ErrNotFound):
 			writeJSON(w, http.StatusNotFound, errorBody("not found"))
-		case "conflict":
+		case errors.Is(err, apperr.ErrConflict):
 			writeJSON(w, http.StatusConflict, errorBody("checksum mismatch"))
 		default:
-			writeJSON(w, http.StatusInternalServerError, errorBody(err.Error()))
+			slog.Error("update note failed", slog.String("path", path), slog.String("error", err.Error()))
+			writeJSON(w, http.StatusInternalServerError, errorBody("internal error"))
 		}
 		return
 	}
@@ -199,7 +213,8 @@ func (h *Handler) DeleteNote(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, errorBody("path is required"))
 		return
 	}
-	if err := h.svc.DeleteNote(path); err != nil {
+	if err := h.svc.DeleteNote(r.Context(), path); err != nil {
+		slog.Error("delete note failed", slog.String("path", path), slog.String("error", err.Error()))
 		writeJSON(w, http.StatusNotFound, errorBody("not found"))
 		return
 	}
@@ -224,12 +239,13 @@ func (h *Handler) Search(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	results, err := h.svc.Search(q, limit)
+	results, err := h.svc.Search(r.Context(), q, limit)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, errorBody(err.Error()))
+		slog.Error("search failed", slog.String("query", q), slog.String("error", err.Error()))
+		writeJSON(w, http.StatusInternalServerError, errorBody("internal error"))
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]interface{}{
+	writeJSON(w, http.StatusOK, map[string]any{
 		"results": results,
 	})
 }
@@ -242,13 +258,14 @@ func (h *Handler) Search(w http.ResponseWriter, r *http.Request) {
 //	@Success		200	{object}	GraphResponse
 //	@Security		BearerAuth
 //	@Router			/graph [get]
-func (h *Handler) Graph(w http.ResponseWriter, _ *http.Request) {
-	nodes, links, err := h.svc.Graph()
+func (h *Handler) Graph(w http.ResponseWriter, r *http.Request) {
+	nodes, links, err := h.svc.Graph(r.Context())
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, errorBody(err.Error()))
+		slog.Error("graph failed", slog.String("error", err.Error()))
+		writeJSON(w, http.StatusInternalServerError, errorBody("internal error"))
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]interface{}{
+	writeJSON(w, http.StatusOK, map[string]any{
 		"nodes": nodes,
 		"links": links,
 	})

@@ -9,6 +9,7 @@ import (
 	"github.com/starford/kenaz/internal"
 	"github.com/starford/kenaz/internal/index"
 	"github.com/starford/kenaz/internal/mcpserver"
+	"github.com/starford/kenaz/internal/noteservice"
 	"github.com/starford/kenaz/internal/storage"
 	pkgconfig "github.com/starford/kenaz/pkg/config"
 	_ "github.com/joho/godotenv/autoload"
@@ -62,7 +63,8 @@ func runMCP(ctx context.Context, cmd *cli.Command) error {
 	logger := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelWarn}))
 	index.Sync(db, store, logger)
 
-	srv := mcpserver.New(store, db)
+	svc := noteservice.NewService(store, db)
+	srv := mcpserver.New(svc)
 	return srv.ServeStdio()
 }
 

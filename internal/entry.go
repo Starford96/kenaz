@@ -21,6 +21,7 @@ import (
 
 	"github.com/starford/kenaz/internal/api"
 	"github.com/starford/kenaz/internal/index"
+	"github.com/starford/kenaz/internal/noteservice"
 	"github.com/starford/kenaz/internal/sse"
 	"github.com/starford/kenaz/internal/storage"
 )
@@ -86,8 +87,8 @@ func Run(ctx context.Context, opts ...Option) error {
 		return fmt.Errorf("create attachments dir: %w", err)
 	}
 
-	// Build API service and router.
-	svc := api.NewService(store, db)
+	// Build shared service and API router.
+	svc := noteservice.NewService(store, db)
 	apiRouter := api.NewRouter(svc, cfg.Auth.AuthEnabled(), cfg.Auth.Token, broker, cfg.Vault.Path)
 
 	// Build chi router.
@@ -151,8 +152,11 @@ func Run(ctx context.Context, opts ...Option) error {
 	}
 
 	httpServer := &http.Server{
-		Addr:    cfg.App.HTTP.Address(),
-		Handler: r,
+		Addr:              cfg.App.HTTP.Address(),
+		Handler:           r,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		IdleTimeout:       120 * time.Second,
 	}
 
 	logger.Info("Server starting...", slog.String("http_address", cfg.App.HTTP.Address()))
@@ -161,10 +165,9 @@ func Run(ctx context.Context, opts ...Option) error {
 
 	// Start file watcher with SSE callback.
 	g.Go(func() error {
-		index.Watch(gCtx, db, store, cfg.Vault.Path, logger, func(kind, path string) {
+		return index.Watch(gCtx, db, store, cfg.Vault.Path, logger, func(kind, path string) {
 			broker.PublishNoteEvent(kind, path)
 		})
-		return nil
 	})
 
 	// Start HTTP server.

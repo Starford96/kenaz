@@ -15,24 +15,25 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/starford/kenaz/internal/index"
+	"github.com/starford/kenaz/internal/noteservice"
 	"github.com/starford/kenaz/internal/storage"
 )
 
 // testEnv sets up a temp vault, SQLite DB, service, and router for testing.
 // authEnabled=false means disabled mode; authEnabled=true with non-empty token means token mode.
-func testEnv(t *testing.T, authToken string) (*Service, http.Handler) {
+func testEnv(t *testing.T, authToken string) (*noteservice.Service, http.Handler) {
 	t.Helper()
 	enabled := authToken != ""
 	return testEnvFull(t, enabled, authToken)
 }
 
-func testEnvFull(t *testing.T, authEnabled bool, authToken string) (*Service, http.Handler) {
+func testEnvFull(t *testing.T, authEnabled bool, authToken string) (*noteservice.Service, http.Handler) {
 	t.Helper()
 	svc, router, _ := testEnvWithVault(t, authEnabled, authToken)
 	return svc, router
 }
 
-func testEnvWithVault(t *testing.T, authEnabled bool, authToken string) (*Service, http.Handler, string) {
+func testEnvWithVault(t *testing.T, authEnabled bool, authToken string) (*noteservice.Service, http.Handler, string) {
 	t.Helper()
 
 	vaultDir := t.TempDir()
@@ -54,7 +55,7 @@ func testEnvWithVault(t *testing.T, authEnabled bool, authToken string) (*Servic
 	}
 	t.Cleanup(func() { db.Close() })
 
-	svc := NewService(store, db)
+	svc := noteservice.NewService(store, db)
 	router := NewRouter(svc, authEnabled, authToken, nil, vaultDir)
 	return svc, router, vaultDir
 }
@@ -200,9 +201,9 @@ func TestListNotes(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Fatalf("list = %d", w.Code)
 	}
-	var resp map[string]interface{}
+	var resp map[string]any
 	_ = json.Unmarshal(w.Body.Bytes(), &resp)
-	notes := resp["notes"].([]interface{})
+	notes := resp["notes"].([]any)
 	if len(notes) != 2 {
 		t.Errorf("len(notes) = %d, want 2", len(notes))
 	}
@@ -222,9 +223,9 @@ func TestSearchEndpoint(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Fatalf("search = %d, body = %s", w.Code, w.Body.String())
 	}
-	var resp map[string]interface{}
+	var resp map[string]any
 	_ = json.Unmarshal(w.Body.Bytes(), &resp)
-	results := resp["results"].([]interface{})
+	results := resp["results"].([]any)
 	if len(results) != 1 {
 		t.Errorf("search results = %d, want 1", len(results))
 	}
@@ -249,10 +250,10 @@ func TestGraphEndpoint(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Fatalf("graph = %d", w.Code)
 	}
-	var resp map[string]interface{}
+	var resp map[string]any
 	_ = json.Unmarshal(w.Body.Bytes(), &resp)
-	nodes := resp["nodes"].([]interface{})
-	links := resp["links"].([]interface{})
+	nodes := resp["nodes"].([]any)
+	links := resp["links"].([]any)
 	if len(nodes) < 2 {
 		t.Errorf("nodes = %d, want >= 2", len(nodes))
 	}
@@ -386,7 +387,7 @@ func TestSSEEvents_ValidToken(t *testing.T) {
 }
 
 // testEnvWithSSE creates a router with a dummy SSE handler to test auth on /events.
-func testEnvWithSSE(t *testing.T, authEnabled bool, token string) (*Service, http.Handler) {
+func testEnvWithSSE(t *testing.T, authEnabled bool, token string) (*noteservice.Service, http.Handler) {
 	t.Helper()
 
 	vaultDir := t.TempDir()
@@ -406,7 +407,7 @@ func testEnvWithSSE(t *testing.T, authEnabled bool, token string) (*Service, htt
 	}
 	t.Cleanup(func() { db.Close() })
 
-	svc := NewService(store, db)
+	svc := noteservice.NewService(store, db)
 
 	// Minimal SSE handler stub — writes headers and blocks until context done.
 	sseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -450,7 +451,7 @@ func TestUploadAndServeAttachment(t *testing.T) {
 	if w.Code != http.StatusCreated {
 		t.Fatalf("upload = %d, body = %s", w.Code, w.Body.String())
 	}
-	var resp map[string]interface{}
+	var resp map[string]any
 	_ = json.Unmarshal(w.Body.Bytes(), &resp)
 	if resp["filename"] != "test.png" {
 		t.Errorf("filename = %v", resp["filename"])

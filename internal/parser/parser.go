@@ -16,7 +16,7 @@ var (
 
 // Result holds the output of parsing a Markdown file.
 type Result struct {
-	Frontmatter map[string]interface{}
+	Frontmatter map[string]any
 	Body        string
 	Links       []string
 	Tags        []string
@@ -45,7 +45,7 @@ func Parse(data []byte) (*Result, error) {
 
 // splitFrontmatter separates YAML frontmatter (between leading --- delimiters)
 // from the Markdown body. If no frontmatter is found the entire content is body.
-func splitFrontmatter(data []byte) (map[string]interface{}, string, error) {
+func splitFrontmatter(data []byte) (map[string]any, string, error) {
 	const delim = "---"
 	trimmed := bytes.TrimLeft(data, "\n\r")
 
@@ -66,7 +66,7 @@ func splitFrontmatter(data []byte) (map[string]interface{}, string, error) {
 	afterDelim := rest[idx+1+len(delim):]
 	body := strings.TrimLeft(string(afterDelim), "\n\r")
 
-	var fm map[string]interface{}
+	var fm map[string]any
 	if err := yaml.Unmarshal(yamlBlock, &fm); err != nil {
 		// Invalid YAML — return body only, no error (spec: fallback).
 		return nil, string(data), nil
@@ -101,7 +101,7 @@ func extractLinks(body string) []string {
 }
 
 // extractTags collects #tags from body and from frontmatter "tags" field.
-func extractTags(body string, fm map[string]interface{}) []string {
+func extractTags(body string, fm map[string]any) []string {
 	seen := make(map[string]struct{})
 	var out []string
 
@@ -109,7 +109,7 @@ func extractTags(body string, fm map[string]interface{}) []string {
 	if fm != nil {
 		if raw, ok := fm["tags"]; ok {
 			switch v := raw.(type) {
-			case []interface{}:
+			case []any:
 				for _, item := range v {
 					if s, ok := item.(string); ok {
 						s = strings.TrimSpace(s)
@@ -140,7 +140,7 @@ func extractTags(body string, fm map[string]interface{}) []string {
 
 // deriveTitle returns the frontmatter "title" if present, otherwise the first
 // H1 heading, otherwise empty string.
-func deriveTitle(fm map[string]interface{}, body string) string {
+func deriveTitle(fm map[string]any, body string) string {
 	if fm != nil {
 		if t, ok := fm["title"]; ok {
 			if s, ok := t.(string); ok && s != "" {

@@ -4,8 +4,6 @@ package mcpserver
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -13,21 +11,18 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 
-	"github.com/starford/kenaz/internal/index"
-	"github.com/starford/kenaz/internal/parser"
-	"github.com/starford/kenaz/internal/storage"
+	"github.com/starford/kenaz/internal/noteservice"
 )
 
 // Server wraps the MCP server with Kenaz tools.
 type Server struct {
-	mcp   *server.MCPServer
-	store storage.Provider
-	db    *index.DB
+	mcp *server.MCPServer
+	svc *noteservice.Service
 }
 
 // New creates a new MCP server with all Kenaz tools registered.
-func New(store storage.Provider, db *index.DB) *Server {
-	s := &Server{store: store, db: db}
+func New(svc *noteservice.Service) *Server {
+	s := &Server{svc: svc}
 
 	s.mcp = server.NewMCPServer(
 		"Kenaz",
@@ -113,7 +108,7 @@ func (s *Server) searchNotes(ctx context.Context, req mcp.CallToolRequest) (*mcp
 	if err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
 	}
-	results, err := s.db.Search(query, 20)
+	results, err := s.svc.Search(ctx, query, 20)
 	if err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
 	}
@@ -126,11 +121,11 @@ func (s *Server) readNote(ctx context.Context, req mcp.CallToolRequest) (*mcp.Ca
 	if err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
 	}
-	data, err := s.store.Read(path)
+	note, err := s.svc.GetNote(ctx, path)
 	if err != nil {
 		return mcp.NewToolResultError(fmt.Sprintf("not found: %s", path)), nil
 	}
-	return mcp.NewToolResultText(string(data)), nil
+	return mcp.NewToolResultText(note.Content), nil
 }
 
 func (s *Server) createNote(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -143,35 +138,13 @@ func (s *Server) createNote(ctx context.Context, req mcp.CallToolRequest) (*mcp.
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 
-	// Check existence.
-	if _, readErr := s.store.Read(path); readErr == nil {
-		return mcp.NewToolResultError(fmt.Sprintf("note already exists: %s", path)), nil
-	}
-
-	data := []byte(content)
-	if err := s.store.Write(path, data); err != nil {
+	if _, err := s.svc.CreateNote(ctx, path, []byte(content)); err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
 	}
-
-	// Index the new note.
-	res, _ := parser.Parse(data)
-	if res != nil {
-		tags := res.Tags
-		if tags == nil {
-			tags = []string{}
-		}
-		_ = s.db.UpsertNote(index.NoteRow{
-			Path:     path,
-			Title:    res.Title,
-			Checksum: "",
-			Tags:     tags,
-		}, res.Body, res.Links)
-	}
-
 	return mcp.NewToolResultText(fmt.Sprintf("created: %s", path)), nil
 }
 
-func (s *Server) updateNote(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func (s *Server) updateNote(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	path, err := req.RequireString("path")
 	if err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
@@ -181,77 +154,53 @@ func (s *Server) updateNote(_ context.Context, req mcp.CallToolRequest) (*mcp.Ca
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 
-	existing, err := s.store.Read(path)
-	if err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("not found: %s", path)), nil //nolint:nilerr // MCP tool errors are returned via CallToolResult, not as Go errors.
+	cs := ""
+	if v, csErr := req.RequireString("checksum"); csErr == nil {
+		cs = v
 	}
 
-	if cs, csErr := req.RequireString("checksum"); csErr == nil && cs != "" {
-		h := sha256.Sum256(existing)
-		currentCS := hex.EncodeToString(h[:])
-		if cs != currentCS {
-			return mcp.NewToolResultError(fmt.Sprintf("conflict: checksum mismatch for %s", path)), nil
-		}
-	}
-
-	data := []byte(content)
-	if err := s.store.Write(path, data); err != nil {
+	if _, err := s.svc.UpdateNote(ctx, path, []byte(content), cs); err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
 	}
-
-	res, _ := parser.Parse(data)
-	if res != nil {
-		tags := res.Tags
-		if tags == nil {
-			tags = []string{}
-		}
-		h := sha256.Sum256(data)
-		_ = s.db.UpsertNote(index.NoteRow{
-			Path:     path,
-			Title:    res.Title,
-			Checksum: hex.EncodeToString(h[:]),
-			Tags:     tags,
-		}, res.Body, res.Links)
-	}
-
 	return mcp.NewToolResultText(fmt.Sprintf("updated: %s", path)), nil
 }
 
-func (s *Server) deleteNote(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func (s *Server) deleteNote(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	path, err := req.RequireString("path")
 	if err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
 	}
-	if delErr := s.store.Delete(path); delErr != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("not found: %s", path)), nil //nolint:nilerr // MCP tool errors are returned via CallToolResult, not as Go errors.
+	if err := s.svc.DeleteNote(ctx, path); err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("not found: %s", path)), nil //nolint:nilerr
 	}
-	_ = s.db.DeleteNote(path)
 	return mcp.NewToolResultText(fmt.Sprintf("deleted: %s", path)), nil
 }
 
 func (s *Server) listNotes(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	folder := ""
-	if f, err := req.RequireString("folder"); err == nil {
-		folder = f
-	}
-
-	metas, err := s.store.List(folder)
+	items, _, err := s.svc.ListNotes(ctx, 1000, 0, "", "path")
 	if err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 
+	folder := ""
+	if f, fErr := req.RequireString("folder"); fErr == nil {
+		folder = f
+	}
+
 	var paths []string
-	for _, m := range metas {
-		paths = append(paths, m.Path)
+	for _, item := range items {
+		if folder == "" || strings.HasPrefix(item.Path, folder) {
+			paths = append(paths, item.Path)
+		}
 	}
 	return mcp.NewToolResultText(strings.Join(paths, "\n")), nil
 }
 
-func (s *Server) getNoteContract(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func (s *Server) getNoteContract(_ context.Context, _ mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	return mcp.NewToolResultText(NoteFormatContract), nil
 }
 
-func (s *Server) readNoteFormatResource(ctx context.Context, req mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
+func (s *Server) readNoteFormatResource(_ context.Context, _ mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
 	return []mcp.ResourceContents{
 		mcp.TextResourceContents{
 			URI:      "kenaz://note-format",
@@ -266,7 +215,7 @@ func (s *Server) getBacklinks(ctx context.Context, req mcp.CallToolRequest) (*mc
 	if err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
 	}
-	bl, err := s.db.Backlinks(path)
+	bl, err := s.svc.Backlinks(ctx, path)
 	if err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
 	}

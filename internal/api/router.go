@@ -4,13 +4,14 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/starford/kenaz/internal/noteservice"
 )
 
 // NewRouter creates a chi router with all API routes mounted.
 // authEnabled controls whether Bearer token auth is enforced.
 // sseHandler, if non-nil, is mounted at GET /events inside the auth group.
 // vaultRoot is used to resolve the attachments directory.
-func NewRouter(svc *Service, authEnabled bool, token string, sseHandler http.Handler, vaultRoot string) chi.Router {
+func NewRouter(svc *noteservice.Service, authEnabled bool, token string, sseHandler http.Handler, vaultRoot string) chi.Router {
 	h := NewHandler(svc)
 	ah := NewAttachmentHandler(vaultRoot)
 

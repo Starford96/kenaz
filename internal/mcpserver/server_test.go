@@ -9,6 +9,7 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 
 	"github.com/starford/kenaz/internal/index"
+	"github.com/starford/kenaz/internal/noteservice"
 	"github.com/starford/kenaz/internal/storage"
 )
 
@@ -34,11 +35,12 @@ func testServer(t *testing.T) (*Server, storage.Provider) {
 	}
 	t.Cleanup(func() { db.Close() })
 
-	srv := New(store, db)
+	svc := noteservice.NewService(store, db)
+	srv := New(svc)
 	return srv, store
 }
 
-func callTool(t *testing.T, srv *Server, name string, args map[string]interface{}) *mcp.CallToolResult {
+func callTool(t *testing.T, srv *Server, name string, args map[string]any) *mcp.CallToolResult {
 	t.Helper()
 	ctx := context.Background()
 	req := mcp.CallToolRequest{}
@@ -91,7 +93,7 @@ func resultText(r *mcp.CallToolResult) string {
 func TestCreateAndReadNote(t *testing.T) {
 	srv, _ := testServer(t)
 
-	r := callTool(t, srv, "create_note", map[string]interface{}{
+	r := callTool(t, srv, "create_note", map[string]any{
 		"path":    "test.md",
 		"content": "# Test\nHello",
 	})
@@ -100,7 +102,7 @@ func TestCreateAndReadNote(t *testing.T) {
 		t.Errorf("create result = %q", text)
 	}
 
-	r = callTool(t, srv, "read_note", map[string]interface{}{
+	r = callTool(t, srv, "read_note", map[string]any{
 		"path": "test.md",
 	})
 	text = resultText(r)
@@ -110,11 +112,15 @@ func TestCreateAndReadNote(t *testing.T) {
 }
 
 func TestListNotes(t *testing.T) {
-	srv, store := testServer(t)
-	_ = store.Write("a.md", []byte("a"))
-	_ = store.Write("b.md", []byte("b"))
+	srv, _ := testServer(t)
+	_ = callTool(t, srv, "create_note", map[string]any{
+		"path": "a.md", "content": "# A",
+	})
+	_ = callTool(t, srv, "create_note", map[string]any{
+		"path": "b.md", "content": "# B",
+	})
 
-	r := callTool(t, srv, "list_notes", map[string]interface{}{})
+	r := callTool(t, srv, "list_notes", map[string]any{})
 	text := resultText(r)
 	if text == "" {
 		t.Error("list returned empty")
@@ -123,7 +129,7 @@ func TestListNotes(t *testing.T) {
 
 func TestReadNoteMissing(t *testing.T) {
 	srv, _ := testServer(t)
-	r := callTool(t, srv, "read_note", map[string]interface{}{"path": "nope.md"})
+	r := callTool(t, srv, "read_note", map[string]any{"path": "nope.md"})
 	if !r.IsError {
 		t.Error("expected error for missing note")
 	}
@@ -131,7 +137,7 @@ func TestReadNoteMissing(t *testing.T) {
 
 func TestGetNoteContract(t *testing.T) {
 	srv, _ := testServer(t)
-	r := callTool(t, srv, "get_note_contract", map[string]interface{}{})
+	r := callTool(t, srv, "get_note_contract", map[string]any{})
 	text := resultText(r)
 	if text == "" {
 		t.Fatal("contract is empty")
@@ -174,12 +180,12 @@ func TestReadNoteFormatResource(t *testing.T) {
 
 func TestGetBacklinks(t *testing.T) {
 	srv, _ := testServer(t)
-	_ = callTool(t, srv, "create_note", map[string]interface{}{
+	_ = callTool(t, srv, "create_note", map[string]any{
 		"path":    "a.md",
 		"content": "links to [[b]]",
 	})
 
-	r := callTool(t, srv, "get_backlinks", map[string]interface{}{"path": "b"})
+	r := callTool(t, srv, "get_backlinks", map[string]any{"path": "b"})
 	text := resultText(r)
 	if text != "a.md" {
 		t.Errorf("backlinks = %q, want a.md", text)
@@ -189,12 +195,12 @@ func TestGetBacklinks(t *testing.T) {
 func TestUpdateNote(t *testing.T) {
 	srv, _ := testServer(t)
 
-	_ = callTool(t, srv, "create_note", map[string]interface{}{
+	_ = callTool(t, srv, "create_note", map[string]any{
 		"path":    "upd.md",
 		"content": "# Original\nv1",
 	})
 
-	r := callTool(t, srv, "update_note", map[string]interface{}{
+	r := callTool(t, srv, "update_note", map[string]any{
 		"path":    "upd.md",
 		"content": "# Updated\nv2",
 	})
@@ -203,7 +209,7 @@ func TestUpdateNote(t *testing.T) {
 		t.Errorf("update result = %q", text)
 	}
 
-	r = callTool(t, srv, "read_note", map[string]interface{}{"path": "upd.md"})
+	r = callTool(t, srv, "read_note", map[string]any{"path": "upd.md"})
 	text = resultText(r)
 	if text != "# Updated\nv2" {
 		t.Errorf("read after update = %q", text)
@@ -212,7 +218,7 @@ func TestUpdateNote(t *testing.T) {
 
 func TestUpdateNoteNotFound(t *testing.T) {
 	srv, _ := testServer(t)
-	r := callTool(t, srv, "update_note", map[string]interface{}{
+	r := callTool(t, srv, "update_note", map[string]any{
 		"path":    "missing.md",
 		"content": "# Hello",
 	})
@@ -224,12 +230,12 @@ func TestUpdateNoteNotFound(t *testing.T) {
 func TestUpdateNoteChecksumConflict(t *testing.T) {
 	srv, _ := testServer(t)
 
-	_ = callTool(t, srv, "create_note", map[string]interface{}{
+	_ = callTool(t, srv, "create_note", map[string]any{
 		"path":    "cs.md",
 		"content": "# CS\noriginal",
 	})
 
-	r := callTool(t, srv, "update_note", map[string]interface{}{
+	r := callTool(t, srv, "update_note", map[string]any{
 		"path":     "cs.md",
 		"content":  "# CS\nnew",
 		"checksum": "0000000000000000000000000000000000000000000000000000000000000000",
@@ -246,18 +252,18 @@ func TestUpdateNoteChecksumConflict(t *testing.T) {
 func TestDeleteNote(t *testing.T) {
 	srv, _ := testServer(t)
 
-	_ = callTool(t, srv, "create_note", map[string]interface{}{
+	_ = callTool(t, srv, "create_note", map[string]any{
 		"path":    "del.md",
 		"content": "# Delete me",
 	})
 
-	r := callTool(t, srv, "delete_note", map[string]interface{}{"path": "del.md"})
+	r := callTool(t, srv, "delete_note", map[string]any{"path": "del.md"})
 	text := resultText(r)
 	if text != "deleted: del.md" {
 		t.Errorf("delete result = %q", text)
 	}
 
-	r = callTool(t, srv, "read_note", map[string]interface{}{"path": "del.md"})
+	r = callTool(t, srv, "read_note", map[string]any{"path": "del.md"})
 	if !r.IsError {
 		t.Error("expected error reading deleted note")
 	}
@@ -265,7 +271,7 @@ func TestDeleteNote(t *testing.T) {
 
 func TestDeleteNoteMissing(t *testing.T) {
 	srv, _ := testServer(t)
-	r := callTool(t, srv, "delete_note", map[string]interface{}{"path": "ghost.md"})
+	r := callTool(t, srv, "delete_note", map[string]any{"path": "ghost.md"})
 	if !r.IsError {
 		t.Error("expected error deleting non-existent note")
 	}

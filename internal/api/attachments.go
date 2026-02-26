@@ -116,7 +116,7 @@ func (h *AttachmentHandler) Upload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusCreated, map[string]interface{}{
+	writeJSON(w, http.StatusCreated, map[string]any{
 		"filename": header.Filename,
 		"size":     written,
 		"url":      "/attachments/" + header.Filename,

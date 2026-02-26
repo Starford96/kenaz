@@ -151,13 +151,13 @@ func Watch(ctx context.Context, db *DB, store storage.Provider, vaultRoot string
 	}
 }
 
-// reconcileAfterRename does a lightweight sync: finds index entries that
-// no longer have a corresponding file on disk and removes them, and finds
-// on-disk files that are not indexed and indexes them.
+// reconcileAfterRename does a lightweight sync using batch lookups:
+// finds index entries without a corresponding file on disk and removes them,
+// and finds on-disk files that are not indexed and indexes them.
 func reconcileAfterRename(db *DB, store storage.Provider, logger *slog.Logger, cb EventCallback) {
-	indexed, err := db.AllPaths()
+	checksums, err := db.AllChecksums()
 	if err != nil {
-		logger.Warn("reconcile: allpaths failed", slog.String("error", err.Error()))
+		logger.Warn("reconcile: all checksums failed", slog.String("error", err.Error()))
 		return
 	}
 
@@ -167,13 +167,12 @@ func reconcileAfterRename(db *DB, store storage.Provider, logger *slog.Logger, c
 		return
 	}
 
-	disk := make(map[string]string, len(metas)) // path → checksum
+	disk := make(map[string]string, len(metas))
 	for _, m := range metas {
 		disk[m.Path] = m.Checksum
 	}
 
-	// Remove stale index entries.
-	for p := range indexed {
+	for p := range checksums {
 		if _, ok := disk[p]; !ok {
 			if delErr := db.DeleteNote(p); delErr == nil {
 				logger.Debug("reconcile: removed stale", slog.String("path", p))
@@ -184,10 +183,8 @@ func reconcileAfterRename(db *DB, store storage.Provider, logger *slog.Logger, c
 		}
 	}
 
-	// Index new files that appeared (the rename target).
 	for p, cs := range disk {
-		existing, _ := db.GetChecksum(p)
-		if existing == cs {
+		if checksums[p] == cs {
 			continue
 		}
 		data, readErr := store.Read(p)

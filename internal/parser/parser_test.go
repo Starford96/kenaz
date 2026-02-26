@@ -66,8 +66,8 @@ func TestExtractLinks_EmptyTarget(t *testing.T) {
 }
 
 func TestExtractTags_InlineAndFrontmatter(t *testing.T) {
-	fm := map[string]interface{}{
-		"tags": []interface{}{"alpha"},
+	fm := map[string]any{
+		"tags": []any{"alpha"},
 	}
 	body := "Some text #beta and #alpha again."
 	tags := extractTags(body, fm)
@@ -78,7 +78,7 @@ func TestExtractTags_InlineAndFrontmatter(t *testing.T) {
 }
 
 func TestDeriveTitle_FrontmatterOverH1(t *testing.T) {
-	fm := map[string]interface{}{"title": "FM Title"}
+	fm := map[string]any{"title": "FM Title"}
 	body := "# H1 Title\ntext"
 	title := deriveTitle(fm, body)
 	if title != "FM Title" {

@@ -17,7 +17,7 @@ func ftsUpsert(_ *sql.Tx, _, _, _ string, _ []string) error {
 	return nil
 }
 
-func ftsDelete(_ *sql.Tx, _ string) {}
+func ftsDelete(_ *sql.Tx, _ string) error { return nil }
 
 // Search performs a LIKE-based search (fallback when FTS5 is not compiled in).
 func (db *DB) Search(query string, limit int) ([]SearchResult, error) {

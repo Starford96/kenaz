@@ -22,17 +22,21 @@ func initFTS(conn *sql.DB) error {
 }
 
 func ftsUpsert(tx *sql.Tx, path, title, body string, tags []string) error {
-	_, _ = tx.Exec(`DELETE FROM files_fts WHERE path = ?`, path)
-	_, err := tx.Exec(`INSERT INTO files_fts (path, title, body, tags) VALUES (?, ?, ?, ?)`,
-		path, title, body, strings.Join(tags, " "))
-	if err != nil {
+	if _, err := tx.Exec(`DELETE FROM files_fts WHERE path = ?`, path); err != nil {
+		return fmt.Errorf("index: fts delete before upsert: %w", err)
+	}
+	if _, err := tx.Exec(`INSERT INTO files_fts (path, title, body, tags) VALUES (?, ?, ?, ?)`,
+		path, title, body, strings.Join(tags, " ")); err != nil {
 		return fmt.Errorf("index: upsert fts: %w", err)
 	}
 	return nil
 }
 
-func ftsDelete(tx *sql.Tx, path string) {
-	_, _ = tx.Exec(`DELETE FROM files_fts WHERE path = ?`, path)
+func ftsDelete(tx *sql.Tx, path string) error {
+	if _, err := tx.Exec(`DELETE FROM files_fts WHERE path = ?`, path); err != nil {
+		return fmt.Errorf("index: fts delete: %w", err)
+	}
+	return nil
 }
 
 // Search performs an FTS5 full-text search and returns matching results with snippets.
