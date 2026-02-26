@@ -9,6 +9,7 @@ import { getNote, updateNote, listNotes, type NoteDetail } from "../api/notes";
 import { useUIStore } from "../store/ui";
 import { useIsMobile } from "../hooks/useIsMobile";
 import { slugify, extractText } from "../utils/slugify";
+import { scrollToHeading } from "../utils/scrollToHeading";
 import MarkdownEditor from "./MarkdownEditor";
 import { c } from "../styles/colors";
 
@@ -143,7 +144,16 @@ export default function NoteView({ path }: Props) {
       if (!anchor) return;
 
       const rawHref = String(anchor.getAttribute("href") ?? "").trim();
-      if (!rawHref || rawHref.startsWith("#")) return;
+      if (!rawHref) return;
+
+      if (rawHref.startsWith("#")) {
+        e.preventDefault();
+        e.stopPropagation();
+        const id = rawHref.slice(1);
+        history.replaceState(null, "", rawHref);
+        scrollToHeading(id);
+        return;
+      }
 
       const isExternal = /^(https?:|mailto:|tel:)/i.test(rawHref) || rawHref.startsWith("//");
       if (isExternal) return;
@@ -289,7 +299,19 @@ export default function NoteView({ path }: Props) {
                   }
 
                   if (rawHref.startsWith("#")) {
-                    return <a href={rawHref}>{children}</a>;
+                    const anchorId = rawHref.slice(1);
+                    return (
+                      <a
+                        href={rawHref}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          history.replaceState(null, "", rawHref);
+                          scrollToHeading(anchorId);
+                        }}
+                      >
+                        {children}
+                      </a>
+                    );
                   }
 
                   try {

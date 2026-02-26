@@ -4,6 +4,7 @@ import { LinkOutlined, OrderedListOutlined } from "@ant-design/icons";
 import { getNote } from "../api/notes";
 import { useUIStore } from "../store/ui";
 import { slugify } from "../utils/slugify";
+import { scrollToHeading } from "../utils/scrollToHeading";
 import { c } from "../styles/colors";
 
 const { Text } = Typography;
@@ -81,11 +82,9 @@ export default function ContextPanel() {
                 history.replaceState(null, "", `#${id}`);
                 if (mobileDrawer) {
                   setMobileDrawer(null);
-                  setTimeout(() => {
-                    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
-                  }, 350);
+                  setTimeout(() => scrollToHeading(id), 350);
                 } else {
-                  document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  scrollToHeading(id);
                 }
               }}
               onKeyDown={(e) => {
@@ -93,7 +92,7 @@ export default function ContextPanel() {
                   e.preventDefault();
                   const id = slugify(h.text);
                   history.replaceState(null, "", `#${id}`);
-                  document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  scrollToHeading(id);
                 }
               }}
               style={{

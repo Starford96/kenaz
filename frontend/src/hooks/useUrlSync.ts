@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useUIStore } from "../store/ui";
+import { scrollToHeadingWithRetry } from "../utils/scrollToHeading";
 
 /**
  * Bidirectional sync between the URL path and the active note tab.
@@ -31,18 +32,7 @@ export function useUrlSync() {
     const hash = location.hash.replace(/^#/, "");
     if (!hash) return;
 
-    const tryScroll = (attempts = 0) => {
-      const el = document.getElementById(hash);
-      if (el) {
-        el.scrollIntoView({ behavior: "smooth", block: "start" });
-        return;
-      }
-      if (attempts < 10) {
-        setTimeout(() => tryScroll(attempts + 1), 200);
-      }
-    };
-
-    tryScroll();
+    scrollToHeadingWithRetry(hash);
   }, [location.hash, location.pathname]);
 
   // State -> URL: when activeTab changes, update the URL (strip old hash).
