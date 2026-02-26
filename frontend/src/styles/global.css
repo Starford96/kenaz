@@ -343,12 +343,6 @@ body,
   transform: scale(0.92);
   color: var(--text-secondary);
 }
-.bottom-bar__btn--accent {
-  color: var(--accent);
-}
-.bottom-bar__btn--accent:active {
-  color: var(--accent-hover);
-}
 
 /* ── Outline items (context panel) ──────────────────────── */
 .outline-item {

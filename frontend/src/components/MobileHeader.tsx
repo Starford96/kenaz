@@ -1,5 +1,5 @@
 import { Typography } from "antd";
-import { MenuOutlined } from "@ant-design/icons";
+import { MenuOutlined, PlusOutlined } from "@ant-design/icons";
 import { useUIStore } from "../store/ui";
 
 const { Text } = Typography;
@@ -9,6 +9,10 @@ export default function MobileHeader() {
 
   const activeTitle =
     tabs.find((t) => t.path === activeTab)?.title ?? "Kenaz";
+
+  const handleCreate = () => {
+    window.dispatchEvent(new CustomEvent("kenaz:create-note"));
+  };
 
   return (
     <div className="mobile-header">
@@ -28,7 +32,13 @@ export default function MobileHeader() {
         {activeTitle}
       </Text>
 
-      <div style={{ width: 36 }} />
+      <button
+        className="mobile-header__btn"
+        onClick={handleCreate}
+        aria-label="New note"
+      >
+        <PlusOutlined />
+      </button>
     </div>
   );
 }
