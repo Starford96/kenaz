@@ -2,8 +2,11 @@ import { useEffect } from "react";
 import { ConfigProvider, Layout, App as AntApp, Drawer } from "antd";
 import { darkTheme } from "./styles/theme";
 import { useUIStore } from "./store/ui";
-import { useIsMobile } from "./hooks/useIsMobile";
-import { useMediaQuery } from "./hooks/useMediaQuery";
+import {
+  useContainerWidth,
+  MOBILE_BREAKPOINT,
+  CONTEXT_PANEL_BREAKPOINT,
+} from "./hooks/useContainerWidth";
 import { useSSE } from "./hooks/useSSE";
 import Sidebar from "./components/Sidebar";
 import TabBar from "./components/TabBar";
@@ -23,8 +26,9 @@ export default function App() {
     setMobileDrawer,
   } = useUIStore();
 
-  const isMobile = useIsMobile();
-  const canShowContextSider = useMediaQuery("(min-width: 1024px)");
+  const containerWidth = useContainerWidth();
+  const isMobile = containerWidth < MOBILE_BREAKPOINT;
+  const canShowContextSider = containerWidth >= CONTEXT_PANEL_BREAKPOINT;
 
   useSSE();
 

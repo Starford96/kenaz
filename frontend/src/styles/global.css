@@ -18,6 +18,10 @@ body,
     sans-serif;
 }
 
+#root {
+  container-type: inline-size;
+}
+
 /* Scrollbar styling for dark theme. */
 ::-webkit-scrollbar {
   width: 8px;
@@ -413,9 +417,45 @@ body,
     scrollbar-width: none;
   }
 
-  /* Safety net: if the desktop layout ever renders on a narrow screen,
+  /* Safety net: if the desktop layout ever renders on a narrow viewport,
      hide the Siders so the Content area remains visible. */
   .ant-layout > .ant-layout-sider {
     display: none !important;
+  }
+}
+
+/* ── Container query safety net (iframe / HA panel embedding) ── */
+@container (max-width: 767px) {
+  .ant-layout > .ant-layout-sider {
+    display: none !important;
+  }
+
+  .md-preview {
+    font-size: 14px;
+    line-height: 1.65;
+  }
+  .md-preview h1 {
+    font-size: 1.5em;
+  }
+  .md-preview h2 {
+    font-size: 1.25em;
+  }
+  .md-preview h3 {
+    font-size: 1.1em;
+  }
+  .md-preview pre {
+    padding: 10px 12px;
+    font-size: 12px;
+  }
+  .md-preview table {
+    font-size: 13px;
+  }
+  .md-preview th,
+  .md-preview td {
+    padding: 4px 8px;
+  }
+  .md-preview blockquote {
+    margin-left: 0;
+    margin-right: 0;
   }
 }
