@@ -6,7 +6,7 @@ LDFLAGS=-ldflags "-s -w -X main.Version=$(VERSION)"
 BUILD_FLAGS=-trimpath -installsuffix cgo -tags sqlite_fts5
 LINT_BIN_PATH?=$(shell go env GOPATH)/bin
 
-.PHONY: build build-linux run test clean docker-build docker-up docker-down docker-logs fmt lint install-lint deps help openapi openapi-check client-gen frontend-build
+.PHONY: build build-linux run test clean docker-build docker-push docker-up docker-down docker-logs fmt lint install-lint deps help openapi openapi-check client-gen frontend-build
 
 # Build for Linux (Docker).
 build-linux:
@@ -36,9 +36,15 @@ clean:
 
 # Docker
 IMAGE ?= kenaz:$(VERSION)
+REGISTRY ?= 192.168.48.58:5005
 
-docker-build: build-linux
+docker-build:
 	docker build -t $(IMAGE) -f $(BUILD_DIR)/Dockerfile .
+
+# Build and push to local registry.
+docker-push: docker-build
+	docker tag $(IMAGE) $(REGISTRY)/kenaz:$(VERSION)
+	docker push $(REGISTRY)/kenaz:$(VERSION)
 
 docker-up:
 	docker-compose up -d
@@ -110,6 +116,7 @@ help:
 	@echo "  fmt           - Format code with gofumpt"
 	@echo "  clean         - Clean build artifacts"
 	@echo "  docker-build  - Build Docker image"
+	@echo "  docker-push   - Build and push to local registry ($(REGISTRY))"
 	@echo "  docker-up     - Start containers"
 	@echo "  docker-down   - Stop containers"
 	@echo "  docker-logs   - View logs"

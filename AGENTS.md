@@ -74,6 +74,15 @@ When creating notes via API/MCP or generating sample note content, follow:
 
 Prefer valid frontmatter and canonical wikilink syntax.
 
+## Docker Registry
+
+The project uses a local HTTP registry for Docker images:
+
+- **Address**: `192.168.48.58:5005`
+- **Push command**: `make docker-push` (builds and pushes `kenaz:latest`)
+- **Custom version**: `make docker-push VERSION=1.2.3`
+- The registry is configured as an insecure (HTTP) registry in Docker daemon config (`~/.docker/daemon.json`).
+
 ## Reporting Format
 
 When finishing a batch, provide:
