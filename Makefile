@@ -6,7 +6,7 @@ LDFLAGS=-ldflags "-s -w -X main.Version=$(VERSION)"
 BUILD_FLAGS=-trimpath -installsuffix cgo -tags sqlite_fts5
 LINT_BIN_PATH?=$(shell go env GOPATH)/bin
 
-.PHONY: build build-linux run test clean docker-build docker-push docker-up docker-down docker-logs fmt lint install-lint deps help openapi openapi-check client-gen frontend-build
+.PHONY: build build-linux run test clean docker-build docker-push docker-up docker-down docker-logs fmt lint install-lint deps help openapi openapi-check client-gen frontend-build dev-backend dev-frontend prod
 
 # Build for Linux (Docker).
 build-linux:
@@ -104,6 +104,18 @@ client-gen: openapi
 frontend-build:
 	cd frontend && npm run build
 
+# Development: backend only (no frontend serving, use with dev-frontend).
+dev-backend: build
+	FRONTEND_ENABLED=false ./$(BUILD_DIR)/$(BINARY_NAME) --config config/config.yaml
+
+# Development: frontend only (Vite dev server with HMR, proxies API to :8080).
+dev-frontend:
+	cd frontend && npm run dev
+
+# Production: build frontend, build backend, serve everything from backend.
+prod: frontend-build build
+	./$(BUILD_DIR)/$(BINARY_NAME) --config config/config.yaml
+
 # Help.
 help:
 	@echo "Available targets:"
@@ -125,4 +137,7 @@ help:
 	@echo "  openapi-check - Drift check: fail if spec is out of date"
 	@echo "  client-gen    - Generate typed frontend client from OpenAPI spec"
 	@echo "  frontend-build - Build frontend"
+	@echo "  dev-backend   - Run backend only (frontend disabled)"
+	@echo "  dev-frontend  - Run Vite dev server with HMR"
+	@echo "  prod          - Build everything and run in production mode"
 	@echo "  help          - Show this help"
