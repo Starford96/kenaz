@@ -77,9 +77,9 @@ export default function Sidebar() {
   const treeData = data ? buildTree(data.notes ?? []) : [];
 
   return (
-    <div style={{ padding: 12, height: "100%", overflow: "auto" }}>
+    <div style={{ padding: isMobile ? 14 : 12, height: "100%", overflow: "auto" }}>
       <Space direction="vertical" style={{ width: "100%" }} size="small">
-        <div style={{ display: "flex", gap: 4 }}>
+        <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
           <Search
             placeholder="Search notes…"
             prefix={<SearchOutlined />}
@@ -89,6 +89,7 @@ export default function Sidebar() {
             style={{ flex: 1 }}
           />
           <Button
+            type="text"
             size="small"
             icon={<ApartmentOutlined />}
             onClick={() => {
@@ -98,6 +99,7 @@ export default function Sidebar() {
             title="Knowledge graph"
           />
           <Button
+            type="text"
             size="small"
             icon={<PlusOutlined />}
             onClick={() => setCreateOpen(true)}

@@ -16,6 +16,7 @@ import ContextPanel from "./components/ContextPanel";
 import SearchModal from "./components/SearchModal";
 import MobileHeader from "./components/MobileHeader";
 import BottomActionBar from "./components/BottomActionBar";
+import KenazLogo from "./components/KenazLogo";
 
 const { Sider, Content } = Layout;
 
@@ -87,7 +88,7 @@ export default function App() {
                   gap: 8,
                 }}
               >
-                <img src="/favicon.png" alt="" style={{ width: 22, height: 22, borderRadius: 4 }} />
+                <KenazLogo size={22} />
                 Kenaz
               </div>
               <Sidebar />
@@ -138,7 +139,7 @@ export default function App() {
                 gap: 8,
               }}
             >
-              <img src="/favicon.png" alt="" style={{ width: 20, height: 20, borderRadius: 4 }} />
+              <KenazLogo />
               Kenaz
             </div>
             <Sidebar />
