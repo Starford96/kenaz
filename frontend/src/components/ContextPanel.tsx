@@ -75,17 +75,24 @@ export default function ContextPanel() {
               tabIndex={0}
               className="outline-item"
               onClick={() => {
-                const el = document.getElementById(slugify(h.text));
-                if (el) {
-                  const { setMobileDrawer } = useUIStore.getState();
+                const id = slugify(h.text);
+                const { mobileDrawer, setMobileDrawer } = useUIStore.getState();
+                history.replaceState(null, "", `#${id}`);
+                if (mobileDrawer) {
                   setMobileDrawer(null);
-                  setTimeout(() => el.scrollIntoView({ behavior: "smooth", block: "start" }), 150);
+                  setTimeout(() => {
+                    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  }, 350);
+                } else {
+                  document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
                 }
               }}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
-                  document.getElementById(slugify(h.text))?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  const id = slugify(h.text);
+                  history.replaceState(null, "", `#${id}`);
+                  document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
                 }
               }}
               style={{

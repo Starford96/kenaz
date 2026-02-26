@@ -8,6 +8,7 @@ import {
   CONTEXT_PANEL_BREAKPOINT,
 } from "./hooks/useContainerWidth";
 import { useSSE } from "./hooks/useSSE";
+import { useUrlSync } from "./hooks/useUrlSync";
 import Sidebar from "./components/Sidebar";
 import TabBar from "./components/TabBar";
 import ContextPanel from "./components/ContextPanel";
@@ -31,6 +32,7 @@ export default function App() {
   const canShowContextSider = containerWidth >= CONTEXT_PANEL_BREAKPOINT;
 
   useSSE();
+  useUrlSync();
 
   useEffect(() => {
     if (isMobile) {
