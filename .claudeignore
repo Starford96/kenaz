@@ -1,0 +1,39 @@
+# Dependencies
+vendor/
+frontend/node_modules/
+
+# Build artifacts
+bin/
+dist/
+frontend/dist/
+build/
+
+# Generated code
+# api/schema/kenaz/swag/
+
+# SQLite databases
+*.db
+*.db-wal
+*.db-shm
+*.db-journal
+
+# Secrets & local config
+.env
+.env.local
+config/*.local.yaml
+vault/
+
+# IDE & OS
+.idea/
+.vscode/
+.DS_Store
+
+# Binary artifacts
+*.exe
+*.dll
+*.so
+*.dylib
+*.wasm
+
+# Lock files (large, low signal)
+frontend/package-lock.json
