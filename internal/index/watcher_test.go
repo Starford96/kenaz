@@ -63,9 +63,7 @@ func TestWatcher_NewFileIndexed(t *testing.T) {
 		mu.Unlock()
 	})
 
-	eventually(t, 2*time.Second, 50*time.Millisecond, func() bool {
-		return true // wait for watcher startup
-	}, "")
+	time.Sleep(100 * time.Millisecond)
 
 	_ = os.WriteFile(filepath.Join(vaultDir, "new.md"), []byte("# New"), 0o644)
 
