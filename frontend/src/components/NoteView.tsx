@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import type { MouseEvent } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Spin, Typography, Tag, Divider, List, Button, Space, App } from "antd";
-import { LinkOutlined, EditOutlined, EyeOutlined } from "@ant-design/icons";
+import { LinkOutlined, EditOutlined, EyeOutlined, DownloadOutlined } from "@ant-design/icons";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { getNote, updateNote, listNotes, type NoteDetail } from "../api/notes";
@@ -101,6 +101,17 @@ export default function NoteView({ path }: Props) {
   const exitEdit = useCallback(() => {
     setEditing(false);
   }, []);
+
+  const handleDownload = useCallback(() => {
+    if (!note) return;
+    const blob = new Blob([note.content], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = path.split("/").pop() || "note.md";
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [note, path]);
 
   // Keyboard shortcuts: Cmd/Ctrl+E toggle edit, Cmd/Ctrl+S save.
   useEffect(() => {
@@ -229,6 +240,11 @@ export default function NoteView({ path }: Props) {
               Save
             </Button>
           )}
+          <Button
+            size="small"
+            icon={<DownloadOutlined />}
+            onClick={handleDownload}
+          />
           <Button
             size="small"
             icon={editing ? <EyeOutlined /> : <EditOutlined />}
