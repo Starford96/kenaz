@@ -64,7 +64,7 @@ func runMCP(ctx context.Context, cmd *cli.Command) error {
 	index.Sync(db, store, logger)
 
 	svc := noteservice.NewService(store, db)
-	srv := mcpserver.New(svc)
+	srv := mcpserver.New(svc, store)
 	return srv.ServeStdio()
 }
 

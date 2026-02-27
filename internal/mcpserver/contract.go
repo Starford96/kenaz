@@ -38,6 +38,14 @@ Use [[target|alias]] for display text that differs from the target.
    Frontmatter keys MUST be in English (they are schema fields). Frontmatter values
    (title, tags, aliases, etc.) and body content may use any language including Cyrillic.
 
+## Assets & Images
+
+- Upload assets via the ` + "`" + `upload_asset` + "`" + ` tool. It returns a ` + "`" + `markdownImage` + "`" + ` field ready to paste into the note body.
+- Assets are stored in the shared ` + "`" + `attachments/` + "`" + ` directory (flat, no sub-folders).
+- Reference in notes using the absolute path: ` + "`" + `![description](/attachments/filename.png)` + "`" + `
+- Supported formats: png, jpg, jpeg, gif, webp, svg, pdf.
+- Do **not** use relative paths like ` + "`" + `./attachments/...` + "`" + ` — always use ` + "`" + `/attachments/filename` + "`" + `.
+
 ## Example
 
 ` + "```" + `markdown
@@ -52,6 +60,8 @@ created: 2025-01-20
 # Weekly standup 2025-01-20
 
 Attendees: Alice, Bob.
+
+![Whiteboard photo](/attachments/standup-2025-01-20.jpg)
 
 ## Action items
 

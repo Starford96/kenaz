@@ -12,17 +12,19 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 
 	"github.com/starford/kenaz/internal/noteservice"
+	"github.com/starford/kenaz/internal/storage"
 )
 
 // Server wraps the MCP server with Kenaz tools.
 type Server struct {
-	mcp *server.MCPServer
-	svc *noteservice.Service
+	mcp   *server.MCPServer
+	svc   *noteservice.Service
+	store storage.Provider
 }
 
 // New creates a new MCP server with all Kenaz tools registered.
-func New(svc *noteservice.Service) *Server {
-	s := &Server{svc: svc}
+func New(svc *noteservice.Service, store storage.Provider) *Server {
+	s := &Server{svc: svc, store: store}
 
 	s.mcp = server.NewMCPServer(
 		"Kenaz",
@@ -80,6 +82,15 @@ func New(svc *noteservice.Service) *Server {
 		mcp.WithDescription("Find all notes that link to the specified note."),
 		mcp.WithString("path", mcp.Required(), mcp.Description("Path of the note to find backlinks for")),
 	), s.getBacklinks)
+
+	s.mcp.AddTool(mcp.NewTool("upload_asset",
+		mcp.WithDescription("Download a file from a URL or base64 data URI and save it as an attachment. "+
+			"The file is stored in the shared attachments/ directory. "+
+			"Returns savedPath and markdownImage ready to paste into a note. "+
+			"Supported formats: png, jpg, jpeg, gif, webp, svg, pdf. Max size: 10 MB."),
+		mcp.WithString("url", mcp.Required(), mcp.Description("HTTP/HTTPS URL or base64 data URI (e.g. data:image/png;base64,...)")),
+		mcp.WithString("filename", mcp.Description("Optional filename; if omitted, extracted from URL or generated as UUID")),
+	), s.uploadAsset)
 
 	// Resource: note format contract.
 	s.mcp.AddResource(

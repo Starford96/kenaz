@@ -2,6 +2,7 @@ package mcpserver
 
 import (
 	"context"
+	"encoding/base64"
 	"os"
 	"strings"
 	"testing"
@@ -36,7 +37,7 @@ func testServer(t *testing.T) (*Server, storage.Provider) {
 	t.Cleanup(func() { db.Close() })
 
 	svc := noteservice.NewService(store, db)
-	srv := New(svc)
+	srv := New(svc, store)
 	return srv, store
 }
 
@@ -71,6 +72,8 @@ func callTool(t *testing.T, srv *Server, name string, args map[string]any) *mcp.
 		result, err = srv.getBacklinks(ctx, req)
 	case "get_note_contract":
 		result, err = srv.getNoteContract(ctx, req)
+	case "upload_asset":
+		result, err = srv.uploadAsset(ctx, req)
 	default:
 		t.Fatalf("unknown tool: %s", name)
 	}
@@ -274,5 +277,196 @@ func TestDeleteNoteMissing(t *testing.T) {
 	r := callTool(t, srv, "delete_note", map[string]any{"path": "ghost.md"})
 	if !r.IsError {
 		t.Error("expected error deleting non-existent note")
+	}
+}
+
+// --- upload_asset tests ---
+
+// 1x1 red PNG pixel, base64-encoded.
+const testPNGBase64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=="
+
+func TestUploadAssetBase64PNG(t *testing.T) {
+	srv, store := testServer(t)
+
+	dataURI := "data:image/png;base64," + testPNGBase64
+	r := callTool(t, srv, "upload_asset", map[string]any{
+		"url":      dataURI,
+		"filename": "pixel.png",
+	})
+	if r.IsError {
+		t.Fatalf("unexpected error: %s", resultText(r))
+	}
+
+	text := resultText(r)
+	if !strings.Contains(text, `"/attachments/pixel.png"`) {
+		t.Errorf("unexpected savedPath in result: %s", text)
+	}
+	if !strings.Contains(text, `![pixel.png](/attachments/pixel.png)`) {
+		t.Errorf("unexpected markdownImage in result: %s", text)
+	}
+
+	data, err := store.Read("attachments/pixel.png")
+	if err != nil {
+		t.Fatalf("file not found on disk: %v", err)
+	}
+	if len(data) == 0 {
+		t.Error("saved file is empty")
+	}
+}
+
+func TestUploadAssetAutoFilename(t *testing.T) {
+	srv, _ := testServer(t)
+
+	dataURI := "data:image/png;base64," + testPNGBase64
+	r := callTool(t, srv, "upload_asset", map[string]any{
+		"url": dataURI,
+	})
+	if r.IsError {
+		t.Fatalf("unexpected error: %s", resultText(r))
+	}
+
+	text := resultText(r)
+	if !strings.Contains(text, "/attachments/") {
+		t.Errorf("expected path under /attachments/, got: %s", text)
+	}
+	if !strings.Contains(text, ".png") {
+		t.Errorf("expected .png extension, got: %s", text)
+	}
+}
+
+func TestUploadAssetBadExtension(t *testing.T) {
+	srv, _ := testServer(t)
+
+	dataURI := "data:image/png;base64," + testPNGBase64
+	r := callTool(t, srv, "upload_asset", map[string]any{
+		"url":      dataURI,
+		"filename": "malware.exe",
+	})
+	if !r.IsError {
+		t.Error("expected error for .exe extension")
+	}
+	text := resultText(r)
+	if !strings.Contains(text, "unsupported file extension") {
+		t.Errorf("unexpected error message: %s", text)
+	}
+}
+
+func TestUploadAssetMagicBytesMismatch(t *testing.T) {
+	srv, _ := testServer(t)
+
+	dataURI := "data:image/png;base64," + testPNGBase64
+	r := callTool(t, srv, "upload_asset", map[string]any{
+		"url":      dataURI,
+		"filename": "fake.pdf",
+	})
+	if !r.IsError {
+		t.Error("expected error for magic bytes mismatch")
+	}
+	text := resultText(r)
+	if !strings.Contains(text, "content does not match") {
+		t.Errorf("unexpected error message: %s", text)
+	}
+}
+
+func TestUploadAssetOverwriteProtection(t *testing.T) {
+	srv, store := testServer(t)
+
+	if err := store.Write("attachments/image.png", []byte("existing")); err != nil {
+		t.Fatal(err)
+	}
+
+	dataURI := "data:image/png;base64," + testPNGBase64
+	r := callTool(t, srv, "upload_asset", map[string]any{
+		"url":      dataURI,
+		"filename": "image.png",
+	})
+	if !r.IsError {
+		t.Error("expected error for overwriting existing file")
+	}
+	text := resultText(r)
+	if !strings.Contains(text, "already exists") {
+		t.Errorf("unexpected error message: %s", text)
+	}
+}
+
+func TestUploadAssetBlockedLoopback(t *testing.T) {
+	srv, _ := testServer(t)
+
+	r := callTool(t, srv, "upload_asset", map[string]any{
+		"url":      "http://127.0.0.1:8080/secret.png",
+		"filename": "secret.png",
+	})
+	if !r.IsError {
+		t.Error("expected error for loopback address")
+	}
+	text := resultText(r)
+	if !strings.Contains(text, "blocked host") {
+		t.Errorf("unexpected error message: %s", text)
+	}
+}
+
+func TestUploadAssetBlockedMetadata(t *testing.T) {
+	srv, _ := testServer(t)
+
+	r := callTool(t, srv, "upload_asset", map[string]any{
+		"url":      "http://169.254.169.254/latest/meta-data/",
+		"filename": "metadata.pdf",
+	})
+	if !r.IsError {
+		t.Error("expected error for metadata address")
+	}
+	text := resultText(r)
+	if !strings.Contains(text, "blocked host") {
+		t.Errorf("unexpected error message: %s", text)
+	}
+}
+
+func TestUploadAssetUnsupportedDataURIMime(t *testing.T) {
+	srv, _ := testServer(t)
+
+	r := callTool(t, srv, "upload_asset", map[string]any{
+		"url": "data:application/octet-stream;base64,AAAA",
+	})
+	if !r.IsError {
+		t.Error("expected error for unsupported MIME type")
+	}
+}
+
+func TestUploadAssetSVGValid(t *testing.T) {
+	srv, store := testServer(t)
+
+	svgContent := []byte(`<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"></svg>`)
+	encoded := base64.StdEncoding.EncodeToString(svgContent)
+	dataURI := "data:image/svg+xml;base64," + encoded
+
+	r := callTool(t, srv, "upload_asset", map[string]any{
+		"url":      dataURI,
+		"filename": "icon.svg",
+	})
+	if r.IsError {
+		t.Fatalf("unexpected error: %s", resultText(r))
+	}
+
+	data, err := store.Read("attachments/icon.svg")
+	if err != nil {
+		t.Fatalf("file not found: %v", err)
+	}
+	if !strings.Contains(string(data), "<svg") {
+		t.Error("saved file doesn't contain <svg")
+	}
+}
+
+func TestUploadAssetSVGInvalid(t *testing.T) {
+	srv, _ := testServer(t)
+
+	encoded := base64.StdEncoding.EncodeToString([]byte("not an svg at all"))
+	dataURI := "data:image/svg+xml;base64," + encoded
+
+	r := callTool(t, srv, "upload_asset", map[string]any{
+		"url":      dataURI,
+		"filename": "fake.svg",
+	})
+	if !r.IsError {
+		t.Error("expected error for invalid SVG content")
 	}
 }
