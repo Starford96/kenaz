@@ -373,6 +373,8 @@ body,
 /* ── Drawer overrides ────────────────────────────────────── */
 .kenaz-drawer .ant-drawer-body {
   background: var(--bg-deepest) !important;
+  overflow: auto !important;
+  min-width: 0 !important;
 }
 .kenaz-drawer .ant-drawer-content {
   background: var(--bg-deepest) !important;
@@ -390,6 +392,26 @@ body,
   height: 100dvh;
   display: flex;
   flex-direction: column;
+}
+
+/* ── Desktop tabs: prevent overflow ──────────────────────── */
+.ant-tabs-nav {
+  margin-bottom: 0 !important;
+}
+.ant-tabs-nav-wrap {
+  overflow: hidden !important;
+}
+.ant-tabs-nav-list {
+  flex-wrap: nowrap !important;
+  min-width: 0 !important;
+}
+.ant-tabs-tab {
+  max-width: 180px !important;
+}
+.ant-tabs-tab .ant-tabs-tab-btn {
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
 }
 
 /* ── Mobile tabs ─────────────────────────────────────────── */

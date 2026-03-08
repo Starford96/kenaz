@@ -11,6 +11,7 @@ import { useIsMobile } from "../hooks/useIsMobile";
 import { slugify, extractText } from "../utils/slugify";
 import { scrollToHeading } from "../utils/scrollToHeading";
 import MarkdownEditor from "./MarkdownEditor";
+import { downloadNote } from "../utils/downloadNote";
 import { c } from "../styles/colors";
 
 const { Text } = Typography;
@@ -102,16 +103,20 @@ export default function NoteView({ path }: Props) {
     setEditing(false);
   }, []);
 
-  const handleDownload = useCallback(() => {
+  const [downloading, setDownloading] = useState(false);
+
+  const handleDownload = useCallback(async () => {
     if (!note) return;
-    const blob = new Blob([note.content], { type: "text/markdown;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = path.split("/").pop() || "note.md";
-    a.click();
-    URL.revokeObjectURL(url);
-  }, [note, path]);
+    setDownloading(true);
+    try {
+      await downloadNote(note.content, path);
+    } catch (err) {
+      message.error("Download failed");
+      console.error(err);
+    } finally {
+      setDownloading(false);
+    }
+  }, [note, path, message]);
 
   // Keyboard shortcuts: Cmd/Ctrl+E toggle edit, Cmd/Ctrl+S save.
   useEffect(() => {
@@ -244,7 +249,11 @@ export default function NoteView({ path }: Props) {
             size="small"
             icon={<DownloadOutlined />}
             onClick={handleDownload}
-          />
+            loading={downloading}
+            title="Download as .md (with attachments if any)"
+          >
+            {!isMobile && "Download"}
+          </Button>
           <Button
             size="small"
             icon={editing ? <EyeOutlined /> : <EditOutlined />}

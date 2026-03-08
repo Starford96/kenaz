@@ -1,15 +1,17 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Input, Tree, Typography, Spin, Space, Button } from "antd";
+import { Input, Tree, Typography, Spin, Space, Button, App } from "antd";
 import {
   FileMarkdownOutlined,
   FolderOutlined,
   SearchOutlined,
   PlusOutlined,
   ApartmentOutlined,
+  DownloadOutlined,
 } from "@ant-design/icons";
 import type { DataNode } from "antd/es/tree";
-import { listNotes, type NoteListItem } from "../api/notes";
+import { listNotes, getNote, type NoteListItem } from "../api/notes";
+import { downloadDirectory } from "../utils/downloadNote";
 import { useUIStore } from "../store/ui";
 import { useIsMobile } from "../hooks/useIsMobile";
 import CreateNoteModal from "./CreateNoteModal";
@@ -59,34 +61,82 @@ function buildTree(notes: NoteListItem[]): DataNode[] {
 
 export default function Sidebar() {
   const { openTab, setSearchOpen, setMobileDrawer } = useUIStore();
+  const { message } = App.useApp();
   const isMobile = useIsMobile();
   const [createOpen, setCreateOpen] = useState(false);
+  const [createFolderPath, setCreateFolderPath] = useState<string>("");
+  const [downloadingFolder, setDownloadingFolder] = useState<string | null>(null);
+
+  const openCreateModal = useCallback((folderPath?: string) => {
+    setCreateFolderPath(folderPath ?? "");
+    setCreateOpen(true);
+  }, []);
 
   // Listen for create-note command from palette.
   useEffect(() => {
-    const handler = () => setCreateOpen(true);
+    const handler = () => openCreateModal();
     window.addEventListener("kenaz:create-note", handler);
     return () => window.removeEventListener("kenaz:create-note", handler);
-  }, []);
+  }, [openCreateModal]);
 
   const { data, isLoading } = useQuery({
     queryKey: ["notes"],
     queryFn: () => listNotes({ limit: 1000 }),
   });
 
+  const handleDownloadFolder = useCallback(
+    async (folderKey: string) => {
+      const notes = data?.notes ?? [];
+      const prefix = folderKey.endsWith("/") ? folderKey : `${folderKey}/`;
+      const notesInFolder = notes.filter((n) => n.path.startsWith(prefix));
+      if (notesInFolder.length === 0) {
+        message.warning("No notes in this folder");
+        return;
+      }
+      setDownloadingFolder(folderKey);
+      try {
+        await downloadDirectory(
+          folderKey,
+          notesInFolder,
+          async (path) => (await getNote(path)).content,
+        );
+      } catch (err) {
+        message.error("Download failed");
+        console.error(err);
+      } finally {
+        setDownloadingFolder(null);
+      }
+    },
+    [data?.notes, message],
+  );
+
   const treeData = data ? buildTree(data.notes ?? []) : [];
 
   return (
-    <div style={{ padding: isMobile ? 14 : 12, height: "100%", overflow: "auto" }}>
-      <Space direction="vertical" style={{ width: "100%" }} size="small">
-        <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+    <div
+      style={{
+        padding: isMobile ? 14 : 12,
+        height: "100%",
+        overflow: "auto",
+        minWidth: 0,
+      }}
+    >
+      <Space direction="vertical" style={{ width: "100%", minWidth: 0 }} size="small">
+        <div
+          style={{
+            display: "flex",
+            gap: 4,
+            alignItems: "center",
+            minWidth: 0,
+          }}
+        >
           <Search
             placeholder="Search notes…"
             prefix={<SearchOutlined />}
             onFocus={() => setSearchOpen(true)}
             allowClear
             size="small"
-            style={{ flex: 1 }}
+            style={{ flex: 1, minWidth: 0 }}
           />
           <Button
             type="text"
@@ -97,13 +147,15 @@ export default function Sidebar() {
               if (isMobile) setMobileDrawer(null);
             }}
             title="Knowledge graph"
+            style={{ flexShrink: 0 }}
           />
           <Button
             type="text"
             size="small"
             icon={<PlusOutlined />}
-            onClick={() => setCreateOpen(true)}
+            onClick={() => openCreateModal()}
             title="New note"
+            style={{ flexShrink: 0 }}
           />
         </div>
 
@@ -117,6 +169,62 @@ export default function Sidebar() {
           <Tree
             showIcon
             treeData={treeData}
+            titleRender={(node) => {
+              const isFolder = !node.isLeaf;
+              const key = node.key as string;
+              const isDownloading = downloadingFolder === key;
+              return (
+                <span
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 2,
+                    width: "100%",
+                  }}
+                >
+                  <span
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {typeof node.title === "function"
+                      ? node.title(node)
+                      : node.title}
+                  </span>
+                  {isFolder && (
+                    <>
+                      <Button
+                        type="text"
+                        size="small"
+                        icon={<PlusOutlined />}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openCreateModal(`${key}/`);
+                        }}
+                        title="Create note in folder"
+                        style={{ paddingInline: 4, minWidth: 0 }}
+                      />
+                      <Button
+                        type="text"
+                        size="small"
+                        icon={<DownloadOutlined />}
+                        loading={isDownloading}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDownloadFolder(key);
+                        }}
+                        title="Download folder"
+                        style={{ paddingInline: 4, minWidth: 0 }}
+                      />
+                    </>
+                  )}
+                </span>
+              );
+            }}
             onSelect={(_, info) => {
               const node = info.node;
               if (node.isLeaf) {
@@ -128,7 +236,14 @@ export default function Sidebar() {
           />
         )}
       </Space>
-      <CreateNoteModal open={createOpen} onClose={() => setCreateOpen(false)} />
+      <CreateNoteModal
+        open={createOpen}
+        onClose={() => {
+          setCreateOpen(false);
+          setCreateFolderPath("");
+        }}
+        initialPath={createFolderPath}
+      />
     </div>
   );
 }

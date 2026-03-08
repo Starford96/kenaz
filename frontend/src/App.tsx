@@ -119,10 +119,13 @@ export default function App() {
         <Layout style={{ height: "100vh" }}>
           {/* Left sidebar: file tree + search trigger. */}
           <Sider
-            width={260}
+            width={280}
             collapsedWidth={0}
             collapsed={sidebarCollapsed}
             style={{
+              flex: "0 0 280px",
+              minWidth: 280,
+              maxWidth: 280,
               borderRight: `1px solid ${c.border}`,
               overflow: "auto",
             }}
@@ -148,10 +151,11 @@ export default function App() {
           {/* Center: tabbed note viewer. */}
           <Content
             style={{
-              overflow: "auto",
+              flex: 1,
+              minWidth: 0,
+              overflow: "hidden",
               display: "flex",
               flexDirection: "column",
-              minWidth: 0,
             }}
           >
             <TabBar />
