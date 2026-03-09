@@ -72,6 +72,15 @@ export async function deleteNote(path: string) {
   if (error) throw new Error(error.error);
 }
 
+/** Rename a note or directory. */
+export async function renameNote(oldPath: string, newPath: string) {
+  const { data, error } = await api.POST("/notes/rename", {
+    body: { old_path: oldPath, new_path: newPath },
+  });
+  if (error) throw new Error(error.error);
+  return data!;
+}
+
 /** Full-text search. */
 export async function searchNotes(q: string, limit = 20) {
   const { data, error } = await api.GET("/search", {

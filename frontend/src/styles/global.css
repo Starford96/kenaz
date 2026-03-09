@@ -444,10 +444,23 @@ body,
   margin-inline-end: 2px;
 }
 
+/* Show action buttons only on hover (desktop). */
+.kenaz-sidebar-tree .kenaz-tree-action {
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.kenaz-sidebar-tree .ant-tree-node-content-wrapper:hover .kenaz-tree-action {
+  opacity: 1;
+}
+
 @media (max-width: 767px) {
   .kenaz-sidebar-tree .ant-tree-node-content-wrapper {
     padding: 10px 12px;
     min-height: 44px;
+  }
+  /* Always show action buttons on mobile (no hover). */
+  .kenaz-sidebar-tree .kenaz-tree-action {
+    opacity: 1;
   }
 }
 

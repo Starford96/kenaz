@@ -66,6 +66,29 @@ type AttachmentUploadResponse struct {
 	URL      string `json:"url" example:"/attachments/image.png" validate:"required"`
 }
 
+// RenameNoteRequest is the request body for renaming a note or directory.
+type RenameNoteRequest struct {
+	OldPath string `json:"old_path" example:"notes/old.md" validate:"required"`
+	NewPath string `json:"new_path" example:"notes/new.md" validate:"required"`
+}
+
+// RenameNoteResponse wraps the result of a rename operation.
+// For note rename: NoteDetail fields are populated.
+// For directory rename: Moved contains the list of new paths.
+type RenameNoteResponse struct {
+	// Note rename fields (same as NoteDetail).
+	Path      string         `json:"path,omitempty"`
+	Title     string         `json:"title,omitempty"`
+	Content   string         `json:"content,omitempty"`
+	Checksum  string         `json:"checksum,omitempty"`
+	Tags      []string       `json:"tags,omitempty"`
+	Backlinks []string       `json:"backlinks,omitempty"`
+	Frontmatter map[string]any `json:"frontmatter,omitempty"`
+	UpdatedAt time.Time      `json:"updated_at,omitempty"`
+	// Directory rename field.
+	Moved []string `json:"moved,omitempty"`
+}
+
 // NoteDetailDTO mirrors NoteDetail with explicit types for swag.
 type NoteDetailDTO = NoteDetail
 

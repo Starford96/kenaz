@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -286,6 +287,151 @@ func (db *DB) Backlinks(target string) ([]string, error) {
 			return nil, err
 		}
 		out = append(out, s)
+	}
+	return out, rows.Err()
+}
+
+// MoveNote atomically updates a note's path in the index, including FTS and links.
+func (db *DB) MoveNote(oldPath, newPath string) error {
+	tx, err := db.conn.Begin()
+	if err != nil {
+		return fmt.Errorf("index: begin tx: %w", err)
+	}
+	defer tx.Rollback() //nolint:errcheck
+
+	// Read existing note data for FTS re-insert.
+	var title, body, tagsJSON, cs string
+	var updatedAt time.Time
+	err = tx.QueryRow(
+		`SELECT title, body, checksum, tags, updated_at FROM notes WHERE path = ?`, oldPath,
+	).Scan(&title, &body, &cs, &tagsJSON, &updatedAt)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("index: move note: old path not found")
+		}
+		return fmt.Errorf("index: move note read: %w", err)
+	}
+
+	// Delete old note row and insert new one (path is PK, can't just UPDATE).
+	if _, err := tx.Exec(`DELETE FROM notes WHERE path = ?`, oldPath); err != nil {
+		return fmt.Errorf("index: move delete old: %w", err)
+	}
+	if _, err := tx.Exec(
+		`INSERT INTO notes (path, title, checksum, tags, body, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
+		newPath, title, cs, tagsJSON, body, updatedAt,
+	); err != nil {
+		return fmt.Errorf("index: move insert new: %w", err)
+	}
+
+	// Update FTS.
+	if err := ftsDelete(tx, oldPath); err != nil {
+		return fmt.Errorf("index: move fts delete: %w", err)
+	}
+	var tags []string
+	_ = json.Unmarshal([]byte(tagsJSON), &tags)
+	if err := ftsUpsert(tx, newPath, title, body, tags); err != nil {
+		return fmt.Errorf("index: move fts insert: %w", err)
+	}
+
+	// Update links where this note is the source.
+	if _, err := tx.Exec(`UPDATE links SET source = ? WHERE source = ?`, newPath, oldPath); err != nil {
+		return fmt.Errorf("index: move links source: %w", err)
+	}
+	// Update links where this note is the target (backlinks).
+	// Wikilinks may store targets with or without .md extension.
+	if _, err := tx.Exec(`UPDATE links SET target = ? WHERE target = ?`, newPath, oldPath); err != nil {
+		return fmt.Errorf("index: move links target: %w", err)
+	}
+	oldNoExt := strings.TrimSuffix(oldPath, ".md")
+	newNoExt := strings.TrimSuffix(newPath, ".md")
+	if oldNoExt != oldPath {
+		if _, err := tx.Exec(`UPDATE links SET target = ? WHERE target = ?`, newNoExt, oldNoExt); err != nil {
+			return fmt.Errorf("index: move links target no-ext: %w", err)
+		}
+	}
+
+	return tx.Commit()
+}
+
+// MoveNotesBatch atomically updates paths for multiple notes (directory rename).
+func (db *DB) MoveNotesBatch(moves []PathMove) error {
+	tx, err := db.conn.Begin()
+	if err != nil {
+		return fmt.Errorf("index: begin tx: %w", err)
+	}
+	defer tx.Rollback() //nolint:errcheck
+
+	for _, m := range moves {
+		var title, body, tagsJSON, cs string
+		var updatedAt time.Time
+		err = tx.QueryRow(
+			`SELECT title, body, checksum, tags, updated_at FROM notes WHERE path = ?`, m.OldPath,
+		).Scan(&title, &body, &cs, &tagsJSON, &updatedAt)
+		if err != nil {
+			return fmt.Errorf("index: batch move read %s: %w", m.OldPath, err)
+		}
+		if _, err := tx.Exec(`DELETE FROM notes WHERE path = ?`, m.OldPath); err != nil {
+			return fmt.Errorf("index: batch move delete %s: %w", m.OldPath, err)
+		}
+		if _, err := tx.Exec(
+			`INSERT INTO notes (path, title, checksum, tags, body, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
+			m.NewPath, title, cs, tagsJSON, body, updatedAt,
+		); err != nil {
+			return fmt.Errorf("index: batch move insert %s: %w", m.NewPath, err)
+		}
+		if err := ftsDelete(tx, m.OldPath); err != nil {
+			return fmt.Errorf("index: batch move fts delete %s: %w", m.OldPath, err)
+		}
+		var tags []string
+		_ = json.Unmarshal([]byte(tagsJSON), &tags)
+		if err := ftsUpsert(tx, m.NewPath, title, body, tags); err != nil {
+			return fmt.Errorf("index: batch move fts insert %s: %w", m.NewPath, err)
+		}
+		if _, err := tx.Exec(`UPDATE links SET source = ? WHERE source = ?`, m.NewPath, m.OldPath); err != nil {
+			return fmt.Errorf("index: batch move links source %s: %w", m.OldPath, err)
+		}
+		if _, err := tx.Exec(`UPDATE links SET target = ? WHERE target = ?`, m.NewPath, m.OldPath); err != nil {
+			return fmt.Errorf("index: batch move links target %s: %w", m.OldPath, err)
+		}
+		oldNoExt := strings.TrimSuffix(m.OldPath, ".md")
+		newNoExt := strings.TrimSuffix(m.NewPath, ".md")
+		if oldNoExt != m.OldPath {
+			if _, err := tx.Exec(`UPDATE links SET target = ? WHERE target = ?`, newNoExt, oldNoExt); err != nil {
+				return fmt.Errorf("index: batch move links target no-ext %s: %w", m.OldPath, err)
+			}
+		}
+	}
+
+	return tx.Commit()
+}
+
+// PathMove represents an old→new path mapping for batch moves.
+type PathMove struct {
+	OldPath string
+	NewPath string
+}
+
+// NotesWithPrefix returns all notes whose path starts with the given prefix.
+func (db *DB) NotesWithPrefix(prefix string) ([]NoteRow, error) {
+	rows, err := db.conn.Query(
+		`SELECT path, title, checksum, tags, updated_at FROM notes WHERE path LIKE ?`,
+		prefix+"%",
+	)
+	if err != nil {
+		return nil, fmt.Errorf("index: notes with prefix: %w", err)
+	}
+	defer rows.Close() //nolint:errcheck
+
+	var out []NoteRow
+	for rows.Next() {
+		var n NoteRow
+		var tagsJSON string
+		if err := rows.Scan(&n.Path, &n.Title, &n.Checksum, &tagsJSON, &n.UpdatedAt); err != nil {
+			return nil, err
+		}
+		_ = json.Unmarshal([]byte(tagsJSON), &n.Tags)
+		n.Tags = nonNilSlice(n.Tags)
+		out = append(out, n)
 	}
 	return out, rows.Err()
 }

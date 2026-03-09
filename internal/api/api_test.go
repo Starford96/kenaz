@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -544,5 +545,175 @@ func TestUploadAttachment_MissingFileField(t *testing.T) {
 	router.ServeHTTP(w, req)
 	if w.Code != http.StatusBadRequest {
 		t.Errorf("missing field = %d, want 400", w.Code)
+	}
+}
+
+// Rename tests.
+
+func createTestNote(t *testing.T, router http.Handler, path, content string) {
+	t.Helper()
+	body, _ := json.Marshal(map[string]string{"path": path, "content": content})
+	req := httptest.NewRequest(http.MethodPost, "/notes", bytes.NewReader(body))
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("create %s: status = %d, body = %s", path, w.Code, w.Body.String())
+	}
+}
+
+func postRename(router http.Handler, oldPath, newPath string) *httptest.ResponseRecorder {
+	body, _ := json.Marshal(map[string]string{"old_path": oldPath, "new_path": newPath})
+	req := httptest.NewRequest(http.MethodPost, "/notes/rename", bytes.NewReader(body))
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	return w
+}
+
+func TestRenameNote_API(t *testing.T) {
+	_, router := testEnv(t, "")
+	createTestNote(t, router, "old.md", "# Old")
+
+	w := postRename(router, "old.md", "new.md")
+	if w.Code != http.StatusOK {
+		t.Fatalf("rename status = %d, body = %s", w.Code, w.Body.String())
+	}
+	var resp map[string]any
+	_ = json.Unmarshal(w.Body.Bytes(), &resp)
+	if resp["path"] != "new.md" {
+		t.Errorf("response path = %v, want new.md", resp["path"])
+	}
+
+	// New path accessible.
+	req := httptest.NewRequest(http.MethodGet, "/notes/new.md", nil)
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Errorf("GET new.md = %d, want 200", w.Code)
+	}
+
+	// Old path gone.
+	req = httptest.NewRequest(http.MethodGet, "/notes/old.md", nil)
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	if w.Code != http.StatusNotFound {
+		t.Errorf("GET old.md = %d, want 404", w.Code)
+	}
+}
+
+func TestRenameNote_API_NotFound(t *testing.T) {
+	_, router := testEnv(t, "")
+	w := postRename(router, "nope.md", "x.md")
+	if w.Code != http.StatusNotFound {
+		t.Errorf("rename missing = %d, want 404", w.Code)
+	}
+}
+
+func TestRenameNote_API_Conflict(t *testing.T) {
+	_, router := testEnv(t, "")
+	createTestNote(t, router, "a.md", "# A")
+	createTestNote(t, router, "b.md", "# B")
+
+	w := postRename(router, "a.md", "b.md")
+	if w.Code != http.StatusConflict {
+		t.Errorf("rename conflict = %d, want 409", w.Code)
+	}
+}
+
+func TestRenameNote_API_MissingFields(t *testing.T) {
+	_, router := testEnv(t, "")
+
+	// Empty old_path.
+	body, _ := json.Marshal(map[string]string{"old_path": "", "new_path": "x.md"})
+	req := httptest.NewRequest(http.MethodPost, "/notes/rename", bytes.NewReader(body))
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("empty old_path = %d, want 400", w.Code)
+	}
+
+	// Empty body.
+	req = httptest.NewRequest(http.MethodPost, "/notes/rename", bytes.NewReader([]byte("{}")))
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("empty body = %d, want 400", w.Code)
+	}
+}
+
+func TestRenameNote_API_SamePath(t *testing.T) {
+	_, router := testEnv(t, "")
+	w := postRename(router, "a.md", "a.md")
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("same path = %d, want 400", w.Code)
+	}
+}
+
+func TestRenameDir_API(t *testing.T) {
+	_, router := testEnv(t, "")
+	createTestNote(t, router, "dir/a.md", "# A")
+	createTestNote(t, router, "dir/b.md", "# B")
+
+	w := postRename(router, "dir/", "newdir/")
+	if w.Code != http.StatusOK {
+		t.Fatalf("rename dir status = %d, body = %s", w.Code, w.Body.String())
+	}
+	var resp map[string]any
+	_ = json.Unmarshal(w.Body.Bytes(), &resp)
+	moved, ok := resp["moved"].([]any)
+	if !ok || len(moved) != 2 {
+		t.Fatalf("moved = %v, want 2 items", resp["moved"])
+	}
+
+	// Verify new paths accessible.
+	req := httptest.NewRequest(http.MethodGet, "/notes/newdir/a.md", nil)
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Errorf("GET newdir/a.md = %d, want 200", w.Code)
+	}
+}
+
+func TestRenameNote_API_WikilinkUpdate(t *testing.T) {
+	_, router := testEnv(t, "")
+	createTestNote(t, router, "target.md", "# Target")
+	createTestNote(t, router, "ref.md", "See [[target.md]]")
+
+	w := postRename(router, "target.md", "moved.md")
+	if w.Code != http.StatusOK {
+		t.Fatalf("rename = %d, body = %s", w.Code, w.Body.String())
+	}
+
+	// Check that ref.md content was updated.
+	req := httptest.NewRequest(http.MethodGet, "/notes/ref.md", nil)
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("GET ref.md = %d", w.Code)
+	}
+	var note map[string]any
+	_ = json.Unmarshal(w.Body.Bytes(), &note)
+	content, _ := note["content"].(string)
+	if !strings.Contains(content, "[[moved.md]]") {
+		t.Errorf("ref.md content should contain [[moved.md]], got: %s", content)
+	}
+}
+
+func TestRenameNote_API_AuthProtected(t *testing.T) {
+	_, router := testEnv(t, "secret")
+
+	// No token → 401.
+	w := postRename(router, "a.md", "b.md")
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("rename no auth = %d, want 401", w.Code)
+	}
+
+	// With token → should work (will 404 since note doesn't exist, but not 401).
+	body, _ := json.Marshal(map[string]string{"old_path": "a.md", "new_path": "b.md"})
+	req := httptest.NewRequest(http.MethodPost, "/notes/rename", bytes.NewReader(body))
+	req.Header.Set("Authorization", "Bearer secret")
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	if w.Code == http.StatusUnauthorized {
+		t.Errorf("rename with token should not 401, got %d", w.Code)
 	}
 }

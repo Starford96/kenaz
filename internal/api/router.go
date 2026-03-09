@@ -21,6 +21,7 @@ func NewRouter(svc *noteservice.Service, authEnabled bool, token string, sseHand
 	// Notes CRUD.
 	r.Get("/notes", h.ListNotes)
 	r.Post("/notes", h.CreateNote)
+	r.Post("/notes/rename", h.RenameNote)
 	r.Get("/notes/*", h.GetNote)
 	r.Put("/notes/*", h.UpdateNote)
 	r.Delete("/notes/*", h.DeleteNote)

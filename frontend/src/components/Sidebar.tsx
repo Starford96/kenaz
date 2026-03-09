@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Input, Tree, Typography, Spin, Space, Button, App } from "antd";
 import {
   FileMarkdownOutlined,
@@ -8,9 +8,10 @@ import {
   PlusOutlined,
   ApartmentOutlined,
   DownloadOutlined,
+  EditOutlined,
 } from "@ant-design/icons";
 import type { DataNode } from "antd/es/tree";
-import { listNotes, getNote, type NoteListItem } from "../api/notes";
+import { listNotes, getNote, renameNote, type NoteListItem } from "../api/notes";
 import { downloadDirectory } from "../utils/downloadNote";
 import { useUIStore } from "../store/ui";
 import { useIsMobile } from "../hooks/useIsMobile";
@@ -18,6 +19,22 @@ import CreateNoteModal from "./CreateNoteModal";
 
 const { Search } = Input;
 const { Text } = Typography;
+
+/** Sort tree nodes: folders first, then alphabetical (case-insensitive). */
+function sortTree(nodes: DataNode[]): DataNode[] {
+  return nodes
+    .sort((a, b) => {
+      const aIsFolder = !a.isLeaf;
+      const bIsFolder = !b.isLeaf;
+      if (aIsFolder !== bIsFolder) return aIsFolder ? -1 : 1;
+      return String(a.title).localeCompare(String(b.title), undefined, {
+        sensitivity: "base",
+      });
+    })
+    .map((node) =>
+      node.children ? { ...node, children: sortTree(node.children) } : node,
+    );
+}
 
 /** Build a tree structure from flat note paths. */
 function buildTree(notes: NoteListItem[]): DataNode[] {
@@ -56,16 +73,20 @@ function buildTree(notes: NoteListItem[]): DataNode[] {
   const topLevel = new Set(
     (Object.keys(root) as string[]).filter((k) => !k.includes("/")),
   );
-  return Array.from(topLevel).map((k) => root[k]);
+  return sortTree(Array.from(topLevel).map((k) => root[k]));
 }
 
 export default function Sidebar() {
-  const { openTab, setSearchOpen, setMobileDrawer } = useUIStore();
+  const { openTab, renameTab, setSearchOpen, setMobileDrawer } = useUIStore();
   const { message } = App.useApp();
+  const queryClient = useQueryClient();
   const isMobile = useIsMobile();
   const [createOpen, setCreateOpen] = useState(false);
   const [createFolderPath, setCreateFolderPath] = useState<string>("");
   const [downloadingFolder, setDownloadingFolder] = useState<string | null>(null);
+  const [renamingKey, setRenamingKey] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const renameInputRef = useRef<HTMLInputElement>(null);
 
   const openCreateModal = useCallback((folderPath?: string) => {
     setCreateFolderPath(folderPath ?? "");
@@ -109,6 +130,79 @@ export default function Sidebar() {
     },
     [data?.notes, message],
   );
+
+  const startRename = useCallback((key: string, isFolder: boolean) => {
+    setRenamingKey(key);
+    // Extract just the name part (last segment, without .md for files).
+    const parts = key.split("/");
+    const name = parts[parts.length - 1];
+    setRenameValue(isFolder ? name : name.replace(/\.md$/, ""));
+    // Focus input after render.
+    setTimeout(() => {
+      renameInputRef.current?.focus();
+      renameInputRef.current?.select();
+    }, 0);
+  }, []);
+
+  const confirmRename = useCallback(async () => {
+    if (!renamingKey || !renameValue.trim()) {
+      setRenamingKey(null);
+      return;
+    }
+
+    const key = renamingKey;
+    const isFolder = !(key.endsWith(".md"));
+    const parts = key.split("/");
+    const parentDir = parts.slice(0, -1).join("/");
+    const prefix = parentDir ? `${parentDir}/` : "";
+
+    let oldPath: string;
+    let newPath: string;
+
+    if (isFolder) {
+      oldPath = `${key}/`;
+      newPath = `${prefix}${renameValue.trim()}/`;
+    } else {
+      oldPath = key;
+      const newName = renameValue.trim().endsWith(".md")
+        ? renameValue.trim()
+        : `${renameValue.trim()}.md`;
+      newPath = `${prefix}${newName}`;
+    }
+
+    if (oldPath === newPath) {
+      setRenamingKey(null);
+      return;
+    }
+
+    try {
+      await renameNote(oldPath, newPath);
+      message.success("Renamed");
+      queryClient.invalidateQueries({ queryKey: ["notes"] });
+      if (!isFolder) {
+        renameTab(oldPath, newPath);
+        queryClient.invalidateQueries({ queryKey: ["note", oldPath] });
+      } else {
+        // For directory renames, update all open tabs with old prefix.
+        const tabs = useUIStore.getState().tabs;
+        for (const tab of tabs) {
+          if (tab.path.startsWith(oldPath)) {
+            const newTabPath = newPath.slice(0, -1) + "/" + tab.path.slice(oldPath.length);
+            renameTab(tab.path, newTabPath);
+            queryClient.invalidateQueries({ queryKey: ["note", tab.path] });
+          }
+        }
+      }
+    } catch (err) {
+      message.error(err instanceof Error ? err.message : "Rename failed");
+    } finally {
+      setRenamingKey(null);
+    }
+  }, [renamingKey, renameValue, message, queryClient, renameTab]);
+
+  const cancelRename = useCallback(() => {
+    setRenamingKey(null);
+  }, []);
 
   const treeData = data ? buildTree(data.notes ?? []) : [];
 
@@ -176,6 +270,40 @@ export default function Sidebar() {
               const isFolder = !node.isLeaf;
               const key = node.key as string;
               const isDownloading = downloadingFolder === key;
+              const isRenaming = renamingKey === key;
+
+              if (isRenaming) {
+                return (
+                  <input
+                    ref={renameInputRef}
+                    value={renameValue}
+                    onChange={(e) => setRenameValue(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        confirmRename();
+                      } else if (e.key === "Escape") {
+                        e.preventDefault();
+                        cancelRename();
+                      }
+                      e.stopPropagation();
+                    }}
+                    onBlur={() => confirmRename()}
+                    onClick={(e) => e.stopPropagation()}
+                    style={{
+                      width: "100%",
+                      border: "1px solid var(--ant-color-primary, #1677ff)",
+                      borderRadius: 4,
+                      padding: "1px 6px",
+                      fontSize: "inherit",
+                      lineHeight: "inherit",
+                      outline: "none",
+                      background: "var(--ant-color-bg-container, #fff)",
+                    }}
+                  />
+                );
+              }
+
               return (
                 <span
                   style={{
@@ -198,6 +326,18 @@ export default function Sidebar() {
                       ? node.title(node)
                       : node.title}
                   </span>
+                  <Button
+                    type="text"
+                    size="small"
+                    icon={<EditOutlined />}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      startRename(key, isFolder);
+                    }}
+                    title="Rename"
+                    className="kenaz-tree-action"
+                    style={{ paddingInline: 4, minWidth: 0 }}
+                  />
                   {isFolder && (
                     <>
                       <Button
@@ -209,6 +349,7 @@ export default function Sidebar() {
                           openCreateModal(`${key}/`);
                         }}
                         title="Create note in folder"
+                        className="kenaz-tree-action"
                         style={{ paddingInline: 4, minWidth: 0 }}
                       />
                       <Button
@@ -221,6 +362,7 @@ export default function Sidebar() {
                           handleDownloadFolder(key);
                         }}
                         title="Download folder"
+                        className="kenaz-tree-action"
                         style={{ paddingInline: 4, minWidth: 0 }}
                       />
                     </>

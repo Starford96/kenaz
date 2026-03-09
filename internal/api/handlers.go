@@ -221,6 +221,73 @@ func (h *Handler) DeleteNote(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// RenameNote handles POST /api/notes/rename.
+//
+//	@Summary		Rename a note or directory
+//	@Tags			notes
+//	@Accept			json
+//	@Produce		json
+//	@Param			body	body		RenameNoteRequest	true	"Old and new paths"
+//	@Success		200		{object}	RenameNoteResponse
+//	@Failure		400		{object}	errResponse
+//	@Failure		404		{object}	errResponse
+//	@Failure		409		{object}	errResponse
+//	@Security		BearerAuth
+//	@Router			/notes/rename [post]
+func (h *Handler) RenameNote(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+	var req struct {
+		OldPath string `json:"old_path"`
+		NewPath string `json:"new_path"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, errorBody("invalid JSON body"))
+		return
+	}
+	if req.OldPath == "" || req.NewPath == "" {
+		writeJSON(w, http.StatusBadRequest, errorBody("old_path and new_path are required"))
+		return
+	}
+	if req.OldPath == req.NewPath {
+		writeJSON(w, http.StatusBadRequest, errorBody("old_path and new_path must differ"))
+		return
+	}
+
+	// Directory rename: old_path ends with "/".
+	if strings.HasSuffix(req.OldPath, "/") {
+		newPaths, err := h.svc.RenameDir(r.Context(), req.OldPath, req.NewPath)
+		if err != nil {
+			if errors.Is(err, apperr.ErrNotFound) {
+				writeJSON(w, http.StatusNotFound, errorBody("directory not found"))
+			} else if errors.Is(err, apperr.ErrAlreadyExists) {
+				writeJSON(w, http.StatusConflict, errorBody("target path already exists"))
+			} else {
+				slog.Error("rename dir failed", slog.String("error", err.Error())) //nolint:gosec // paths are validated by storage layer
+				writeJSON(w, http.StatusInternalServerError, errorBody("internal error"))
+			}
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"moved": newPaths})
+		return
+	}
+
+	// Note rename.
+	note, err := h.svc.RenameNote(r.Context(), req.OldPath, req.NewPath)
+	if err != nil {
+		switch {
+		case errors.Is(err, apperr.ErrNotFound):
+			writeJSON(w, http.StatusNotFound, errorBody("not found"))
+		case errors.Is(err, apperr.ErrAlreadyExists):
+			writeJSON(w, http.StatusConflict, errorBody("target path already exists"))
+		default:
+			slog.Error("rename note failed", slog.String("error", err.Error())) //nolint:gosec // paths are validated by storage layer
+			writeJSON(w, http.StatusInternalServerError, errorBody("internal error"))
+		}
+		return
+	}
+	writeJSON(w, http.StatusOK, note)
+}
+
 // Search handles GET /api/search.
 //
 //	@Summary		Full-text search across notes

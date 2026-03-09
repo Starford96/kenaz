@@ -123,6 +123,45 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/errResponse"
+  /notes/rename:
+    post:
+      security:
+        - BearerAuth: []
+      tags:
+        - notes
+      summary: Rename a note or directory
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RenameNoteRequest"
+        description: Old and new paths
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RenameNoteResponse"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/errResponse"
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/errResponse"
+        "409":
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/errResponse"
   /notes/{path}:
     get:
       security:
@@ -352,7 +391,7 @@ components:
           type: string
         frontmatter:
           type: object
-          additionalProperties: true
+          additionalProperties: {}
         path:
           type: string
         tags:
@@ -397,6 +436,48 @@ components:
         total:
           type: integer
           example: 42
+    RenameNoteRequest:
+      type: object
+      required:
+        - new_path
+        - old_path
+      properties:
+        new_path:
+          type: string
+          example: notes/new.md
+        old_path:
+          type: string
+          example: notes/old.md
+    RenameNoteResponse:
+      type: object
+      properties:
+        backlinks:
+          type: array
+          items:
+            type: string
+        checksum:
+          type: string
+        content:
+          type: string
+        frontmatter:
+          type: object
+          additionalProperties: {}
+        moved:
+          description: Directory rename field.
+          type: array
+          items:
+            type: string
+        path:
+          description: Note rename fields (same as NoteDetail).
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        title:
+          type: string
+        updated_at:
+          type: string
     SearchResponse:
       type: object
       required:

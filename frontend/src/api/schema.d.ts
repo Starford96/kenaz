@@ -183,6 +183,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/notes/rename": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Rename a note or directory */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Old and new paths */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["RenameNoteRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["RenameNoteResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errResponse"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/notes/{path}": {
         parameters: {
             query?: never;
@@ -429,6 +497,27 @@ export interface components {
             notes: components["schemas"]["NoteListItem"][];
             /** @example 42 */
             total: number;
+        };
+        RenameNoteRequest: {
+            /** @example notes/new.md */
+            new_path: string;
+            /** @example notes/old.md */
+            old_path: string;
+        };
+        RenameNoteResponse: {
+            backlinks?: string[];
+            checksum?: string;
+            content?: string;
+            frontmatter?: {
+                [key: string]: unknown;
+            };
+            /** @description Directory rename field. */
+            moved?: string[];
+            /** @description Note rename fields (same as NoteDetail). */
+            path?: string;
+            tags?: string[];
+            title?: string;
+            updated_at?: string;
         };
         SearchResponse: {
             results: components["schemas"]["SearchResult"][];

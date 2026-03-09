@@ -21,6 +21,7 @@ interface UIState {
   openTab: (path: string, title?: string) => void;
   closeTab: (path: string) => void;
   setActiveTab: (path: string) => void;
+  renameTab: (oldPath: string, newPath: string, newTitle?: string) => void;
 
   // Quick search / command palette.
   searchOpen: boolean;
@@ -63,6 +64,16 @@ export const useUIStore = create<UIState>()(
           return { tabs, activeTab };
         }),
       setActiveTab: (path) => set({ activeTab: path }),
+      renameTab: (oldPath, newPath, newTitle) =>
+        set((s) => {
+          const tabs = s.tabs.map((t) =>
+            t.path === oldPath
+              ? { path: newPath, title: newTitle ?? t.title }
+              : t,
+          );
+          const activeTab = s.activeTab === oldPath ? newPath : s.activeTab;
+          return { tabs, activeTab };
+        }),
 
       searchOpen: false,
       setSearchOpen: (open) => set({ searchOpen: open }),
