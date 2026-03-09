@@ -105,24 +105,33 @@ func (s *Service) DeleteNote(_ context.Context, path string) error {
 
 // DeleteDir removes a directory and all notes within it from storage and index.
 func (s *Service) DeleteDir(_ context.Context, prefix string) ([]string, error) {
+	dirPath := strings.TrimSuffix(prefix, "/")
+
+	// Check if the directory exists on disk.
+	exists, err := s.store.DirExists(dirPath)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, apperr.ErrNotFound
+	}
+
 	notes, err := s.db.NotesWithPrefix(prefix)
 	if err != nil {
 		return nil, err
 	}
-	if len(notes) == 0 {
-		return nil, apperr.ErrNotFound
+
+	var paths []string
+	if len(notes) > 0 {
+		paths = make([]string, len(notes))
+		for i, n := range notes {
+			paths[i] = n.Path
+		}
+		if err := s.db.DeleteNotesBatch(paths); err != nil {
+			return nil, err
+		}
 	}
 
-	paths := make([]string, len(notes))
-	for i, n := range notes {
-		paths[i] = n.Path
-	}
-
-	if err := s.db.DeleteNotesBatch(paths); err != nil {
-		return nil, err
-	}
-
-	dirPath := strings.TrimSuffix(prefix, "/")
 	if err := s.store.DeleteDir(dirPath); err != nil {
 		return nil, err
 	}

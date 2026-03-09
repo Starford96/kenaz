@@ -13,6 +13,8 @@ type Provider interface {
 	Write(path string, content []byte) error
 	// Delete removes the file at path (relative to vault root).
 	Delete(path string) error
+	// DirExists reports whether the given path is an existing directory.
+	DirExists(path string) (bool, error)
 	// DeleteDir removes a directory and everything inside it.
 	DeleteDir(path string) error
 	// ListDirs returns all directory paths relative to vault root.

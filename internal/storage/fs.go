@@ -176,6 +176,22 @@ func (f *FS) Delete(path string) error {
 	return nil
 }
 
+// DirExists reports whether the given relative path is an existing directory.
+func (f *FS) DirExists(path string) (bool, error) {
+	abs, err := f.safePath(path)
+	if err != nil {
+		return false, err
+	}
+	info, err := os.Stat(abs)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, fmt.Errorf("storage: stat dir %s: %w", path, err)
+	}
+	return info.IsDir(), nil
+}
+
 // DeleteDir removes a directory and all its contents from the vault.
 func (f *FS) DeleteDir(path string) error {
 	abs, err := f.safePath(path)
