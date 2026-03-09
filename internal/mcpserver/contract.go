@@ -4,17 +4,21 @@ package mcpserver
 // LLM consumers should follow when creating or updating notes.
 const NoteFormatContract = `# Kenaz Note Format Contract
 
-Every Markdown note stored in Kenaz MUST follow this structure.
+Notes are UTF-8 Markdown files. YAML frontmatter is optional but strongly recommended for agent-created notes.
 
 ## Structure
 
 ` + "```" + `markdown
 ---
-title: Human-readable title        # REQUIRED – used in search, sidebar, graph
-tags:                               # OPTIONAL – YAML list; used for filtering
+title: "Human-readable title"          # RECOMMENDED – used in search, sidebar, graph
+tags:                                   # OPTIONAL – YAML list; used for filtering
   - tag-one
   - tag-two
-created: 2025-01-15                 # OPTIONAL – ISO-8601 date or datetime
+created_at: "2025-01-15T10:00:00Z"     # OPTIONAL – RFC 3339 UTC
+updated_at: "2025-01-15T12:00:00Z"     # OPTIONAL – RFC 3339 UTC
+aliases:                                # OPTIONAL – alternate names for the note
+  - "Alternate Title"
+status: "draft"                         # OPTIONAL – workflow state (draft, active, archived)
 ---
 
 Body text in standard Markdown.
@@ -25,10 +29,10 @@ Use [[target|alias]] for display text that differs from the target.
 
 ## Rules
 
-1. **YAML frontmatter is mandatory.** The ` + "```" + `---` + "```" + ` fences must be the first
-   thing in the file (no leading blank lines).
-2. **` + "`" + `title` + "`" + ` field is required.** It is the primary display name everywhere.
-3. **Tags** are lowercase, kebab-case (e.g. ` + "`" + `project-x` + "`" + `, ` + "`" + `meeting-notes` + "`" + `).
+1. **YAML frontmatter is optional but strongly recommended.** When present, the
+   ` + "```" + `---` + "```" + ` fences must be the first thing in the file (no leading blank lines).
+2. **` + "`" + `title` + "`" + ` field is recommended** when frontmatter is present. It is the primary display name.
+3. **Tags**: lowercase preferred (e.g. ` + "`" + `project-x` + "`" + `, ` + "`" + `meeting-notes` + "`" + `).
 4. **Wikilinks** use double brackets: ` + "`" + `[[other-note]]` + "`" + `. The target is the
    filename stem (no ` + "`" + `.md` + "`" + ` extension, path separators OK: ` + "`" + `[[folder/note]]` + "`" + `).
 5. **File paths** end with ` + "`" + `.md` + "`" + ` and use forward slashes.
@@ -37,6 +41,7 @@ Use [[target|alias]] for display text that differs from the target.
 8. **Language policy:** file names and directory names MUST be in English (Latin characters).
    Frontmatter keys MUST be in English (they are schema fields). Frontmatter values
    (title, tags, aliases, etc.) and body content may use any language including Cyrillic.
+9. **Unknown frontmatter fields** are allowed and preserved.
 
 ## Assets & Images
 
@@ -50,11 +55,13 @@ Use [[target|alias]] for display text that differs from the target.
 
 ` + "```" + `markdown
 ---
-title: Weekly standup 2025-01-20
+title: "Weekly standup 2025-01-20"
 tags:
   - meeting-notes
   - project-x
-created: 2025-01-20
+created_at: "2025-01-20T09:00:00Z"
+updated_at: "2025-01-20T10:30:00Z"
+status: "active"
 ---
 
 # Weekly standup 2025-01-20

@@ -38,9 +38,9 @@ For canonical note content expectations, see:
     -   Desc: "Delete an existing note at the specified path."
 
 6.  **`list_notes`**
-    -   Args: `folder` (optional string)
-    -   Desc: "List all notes or notes in a specific folder."
-    -   Returns: Newline-separated paths.
+    -   Args: `folder` (optional string), `cursor` (optional string), `tag` (optional string), `limit` (optional number, default 50)
+    -   Desc: "List notes with cursor-based pagination."
+    -   Returns: JSON with `notes` (array of paths) and `nextCursor` (string, omitted when no more pages).
 
 7.  **`get_backlinks`**
     -   Arg: `path` (string, required)
@@ -118,7 +118,10 @@ For canonical note content expectations, see:
 
 ```json
 {
-  "folder": "projects/kenaz"
+  "folder": "projects/kenaz",
+  "limit": 20,
+  "cursor": "projects/kenaz/design.md",
+  "tag": "frontend"
 }
 ```
 

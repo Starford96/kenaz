@@ -1,5 +1,11 @@
 package index
 
+// CursorPage holds a page of notes and an optional cursor for the next page.
+type CursorPage struct {
+	Notes      []NoteRow
+	NextCursor string // empty when no more pages
+}
+
 // NoteIndex defines the interface for note indexing operations.
 // Consumers should depend on this interface rather than the concrete *DB type
 // to facilitate testing with mocks.
@@ -9,6 +15,7 @@ type NoteIndex interface {
 	GetChecksum(path string) (string, error)
 	GetNote(path string) (*NoteRow, error)
 	ListNotes(limit, offset int, tag, sort string) ([]NoteRow, int, error)
+	ListNotesCursor(limit int, cursor, tag, folder string) (CursorPage, error)
 	Search(query string, limit int) ([]SearchResult, error)
 	Graph() ([]GraphNode, []GraphLink, error)
 	Backlinks(target string) ([]string, error)

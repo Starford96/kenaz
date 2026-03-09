@@ -3,6 +3,7 @@ package mcpserver
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"os"
 	"strings"
 	"testing"
@@ -114,6 +115,20 @@ func TestCreateAndReadNote(t *testing.T) {
 	}
 }
 
+type listNotesResponse struct {
+	Notes      []string `json:"notes"`
+	NextCursor string   `json:"nextCursor,omitempty"`
+}
+
+func parseListResponse(t *testing.T, r *mcp.CallToolResult) listNotesResponse {
+	t.Helper()
+	var resp listNotesResponse
+	if err := json.Unmarshal([]byte(resultText(r)), &resp); err != nil {
+		t.Fatalf("failed to parse list_notes response: %v", err)
+	}
+	return resp
+}
+
 func TestListNotes(t *testing.T) {
 	srv, _ := testServer(t)
 	_ = callTool(t, srv, "create_note", map[string]any{
@@ -124,9 +139,84 @@ func TestListNotes(t *testing.T) {
 	})
 
 	r := callTool(t, srv, "list_notes", map[string]any{})
-	text := resultText(r)
-	if text == "" {
-		t.Error("list returned empty")
+	resp := parseListResponse(t, r)
+	if len(resp.Notes) != 2 {
+		t.Errorf("expected 2 notes, got %d", len(resp.Notes))
+	}
+}
+
+func TestListNotesCursorPagination(t *testing.T) {
+	srv, _ := testServer(t)
+	for _, name := range []string{"a.md", "b.md", "c.md", "d.md", "e.md"} {
+		_ = callTool(t, srv, "create_note", map[string]any{
+			"path": name, "content": "# " + name,
+		})
+	}
+
+	// First page: limit 2
+	r := callTool(t, srv, "list_notes", map[string]any{"limit": float64(2)})
+	page1 := parseListResponse(t, r)
+	if len(page1.Notes) != 2 {
+		t.Fatalf("page1: expected 2 notes, got %d", len(page1.Notes))
+	}
+	if page1.NextCursor == "" {
+		t.Fatal("page1: expected nextCursor")
+	}
+
+	// Second page using cursor
+	r = callTool(t, srv, "list_notes", map[string]any{"limit": float64(2), "cursor": page1.NextCursor})
+	page2 := parseListResponse(t, r)
+	if len(page2.Notes) != 2 {
+		t.Fatalf("page2: expected 2 notes, got %d", len(page2.Notes))
+	}
+	if page2.Notes[0] == page1.Notes[0] || page2.Notes[0] == page1.Notes[1] {
+		t.Error("page2 overlaps with page1")
+	}
+
+	// Third page — should get 1 remaining note
+	r = callTool(t, srv, "list_notes", map[string]any{"limit": float64(2), "cursor": page2.NextCursor})
+	page3 := parseListResponse(t, r)
+	if len(page3.Notes) != 1 {
+		t.Fatalf("page3: expected 1 note, got %d", len(page3.Notes))
+	}
+	if page3.NextCursor != "" {
+		t.Error("page3: expected empty nextCursor")
+	}
+}
+
+func TestListNotesCursorWithFolder(t *testing.T) {
+	srv, _ := testServer(t)
+	_ = callTool(t, srv, "create_note", map[string]any{
+		"path": "projects/a.md", "content": "# A",
+	})
+	_ = callTool(t, srv, "create_note", map[string]any{
+		"path": "projects/b.md", "content": "# B",
+	})
+	_ = callTool(t, srv, "create_note", map[string]any{
+		"path": "notes/c.md", "content": "# C",
+	})
+
+	r := callTool(t, srv, "list_notes", map[string]any{"folder": "projects/"})
+	resp := parseListResponse(t, r)
+	if len(resp.Notes) != 2 {
+		t.Errorf("expected 2 notes in projects/, got %d: %v", len(resp.Notes), resp.Notes)
+	}
+	for _, p := range resp.Notes {
+		if !strings.HasPrefix(p, "projects/") {
+			t.Errorf("unexpected path outside folder: %s", p)
+		}
+	}
+}
+
+func TestListNotesCursorEmpty(t *testing.T) {
+	srv, _ := testServer(t)
+	r := callTool(t, srv, "list_notes", map[string]any{})
+	resp := parseListResponse(t, r)
+	if len(resp.Notes) != 0 {
+		t.Errorf("expected 0 notes, got %d", len(resp.Notes))
+	}
+	if resp.NextCursor != "" {
+		t.Error("expected empty nextCursor for empty vault")
 	}
 }
 
@@ -145,7 +235,7 @@ func TestGetNoteContract(t *testing.T) {
 	if text == "" {
 		t.Fatal("contract is empty")
 	}
-	if !strings.Contains(text, "YAML frontmatter is mandatory") {
+	if !strings.Contains(text, "YAML frontmatter is optional but strongly recommended") {
 		t.Error("contract missing expected content")
 	}
 	if !strings.Contains(text, "[[wikilinks]]") {

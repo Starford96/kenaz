@@ -74,8 +74,11 @@ func New(svc *noteservice.Service, store storage.Provider) *Server {
 	), s.getNoteContract)
 
 	s.mcp.AddTool(mcp.NewTool("list_notes",
-		mcp.WithDescription("List all notes or notes in a specific folder."),
-		mcp.WithString("folder", mcp.Description("Optional folder to list (empty for all)")),
+		mcp.WithDescription("List notes with cursor-based pagination. Returns JSON with paths and a nextCursor for the next page."),
+		mcp.WithString("folder", mcp.Description("Optional folder prefix to filter by (e.g. 'projects/kenaz')")),
+		mcp.WithString("cursor", mcp.Description("Cursor from a previous response to fetch the next page")),
+		mcp.WithString("tag", mcp.Description("Optional tag to filter by")),
+		mcp.WithNumber("limit", mcp.Description("Max notes to return per page (default 50)")),
 	), s.listNotes)
 
 	s.mcp.AddTool(mcp.NewTool("get_backlinks",
@@ -188,23 +191,43 @@ func (s *Server) deleteNote(ctx context.Context, req mcp.CallToolRequest) (*mcp.
 }
 
 func (s *Server) listNotes(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	items, _, err := s.svc.ListNotes(ctx, 1000, 0, "", "path")
+	limit := 50
+	if v, err := req.RequireFloat("limit"); err == nil && v > 0 {
+		limit = int(v)
+	}
+
+	cursor := ""
+	if v, err := req.RequireString("cursor"); err == nil {
+		cursor = v
+	}
+	folder := ""
+	if v, err := req.RequireString("folder"); err == nil {
+		folder = v
+	}
+	tag := ""
+	if v, err := req.RequireString("tag"); err == nil {
+		tag = v
+	}
+
+	page, err := s.svc.ListNotesCursor(ctx, limit, cursor, tag, folder)
 	if err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 
-	folder := ""
-	if f, fErr := req.RequireString("folder"); fErr == nil {
-		folder = f
+	paths := make([]string, len(page.Notes))
+	for i, n := range page.Notes {
+		paths[i] = n.Path
 	}
 
-	var paths []string
-	for _, item := range items {
-		if folder == "" || strings.HasPrefix(item.Path, folder) {
-			paths = append(paths, item.Path)
-		}
+	resp := struct {
+		Notes      []string `json:"notes"`
+		NextCursor string   `json:"nextCursor,omitempty"`
+	}{
+		Notes:      paths,
+		NextCursor: page.NextCursor,
 	}
-	return mcp.NewToolResultText(strings.Join(paths, "\n")), nil
+	out, _ := json.Marshal(resp)
+	return mcp.NewToolResultText(string(out)), nil
 }
 
 func (s *Server) getNoteContract(_ context.Context, _ mcp.CallToolRequest) (*mcp.CallToolResult, error) {

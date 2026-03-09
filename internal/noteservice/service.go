@@ -163,6 +163,31 @@ func (s *Service) ListNotes(_ context.Context, limit, offset int, tag, sort stri
 	return items, total, nil
 }
 
+// CursorPage holds a page of notes with an optional cursor for the next page.
+type CursorPage struct {
+	Notes      []NoteListItem `json:"notes"`
+	NextCursor string         `json:"nextCursor,omitempty"`
+}
+
+// ListNotesCursor returns a cursor-based page of notes ordered by path.
+func (s *Service) ListNotesCursor(_ context.Context, limit int, cursor, tag, folder string) (CursorPage, error) {
+	page, err := s.db.ListNotesCursor(limit, cursor, tag, folder)
+	if err != nil {
+		return CursorPage{}, err
+	}
+	items := make([]NoteListItem, len(page.Notes))
+	for i, r := range page.Notes {
+		items[i] = NoteListItem{
+			Path:      r.Path,
+			Title:     r.Title,
+			Checksum:  r.Checksum,
+			Tags:      nonNilSlice(r.Tags),
+			UpdatedAt: r.UpdatedAt,
+		}
+	}
+	return CursorPage{Notes: items, NextCursor: page.NextCursor}, nil
+}
+
 // Search delegates full-text search to the index.
 func (s *Service) Search(_ context.Context, query string, limit int) ([]index.SearchResult, error) {
 	return s.db.Search(query, limit)

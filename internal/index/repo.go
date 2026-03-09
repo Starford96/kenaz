@@ -240,6 +240,67 @@ func (db *DB) ListNotes(limit, offset int, tag, sort string) ([]NoteRow, int, er
 	return out, total, rows.Err()
 }
 
+// ListNotesCursor returns a cursor-based page of notes ordered by path.
+func (db *DB) ListNotesCursor(limit int, cursor, tag, folder string) (CursorPage, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+
+	var clauses []string
+	var args []any
+
+	if cursor != "" {
+		clauses = append(clauses, `path > ?`)
+		args = append(args, cursor)
+	}
+	if folder != "" {
+		clauses = append(clauses, `path LIKE ?`)
+		args = append(args, folder+"%")
+	}
+	if tag != "" {
+		clauses = append(clauses, `tags LIKE ?`)
+		args = append(args, `%"`+tag+`"%`)
+	}
+
+	where := ""
+	if len(clauses) > 0 {
+		where = "WHERE " + strings.Join(clauses, " AND ")
+	}
+
+	q := fmt.Sprintf(`SELECT path, title, checksum, tags, updated_at FROM notes %s ORDER BY path ASC LIMIT ?`, where)
+	args = append(args, limit+1) // fetch one extra to detect next page
+
+	rows, err := db.conn.Query(q, args...)
+	if err != nil {
+		return CursorPage{}, fmt.Errorf("index: list notes cursor: %w", err)
+	}
+	defer rows.Close() //nolint:errcheck
+
+	var out []NoteRow
+	for rows.Next() {
+		var n NoteRow
+		var tagsJSON string
+		if err := rows.Scan(&n.Path, &n.Title, &n.Checksum, &tagsJSON, &n.UpdatedAt); err != nil {
+			return CursorPage{}, err
+		}
+		_ = json.Unmarshal([]byte(tagsJSON), &n.Tags)
+		n.Tags = nonNilSlice(n.Tags)
+		out = append(out, n)
+	}
+	if err := rows.Err(); err != nil {
+		return CursorPage{}, err
+	}
+
+	page := CursorPage{}
+	if len(out) > limit {
+		page.Notes = out[:limit]
+		page.NextCursor = out[limit-1].Path
+	} else {
+		page.Notes = out
+	}
+	return page, nil
+}
+
 // GraphNode represents a node in the knowledge graph.
 type GraphNode struct {
 	ID    string `json:"id"`
