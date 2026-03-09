@@ -432,6 +432,16 @@ body,
   align-items: center;
   justify-content: center;
   vertical-align: middle;
+  background: transparent !important;
+}
+.kenaz-sidebar-tree .ant-tree-switcher:hover,
+.kenaz-sidebar-tree .ant-tree-switcher:active,
+.kenaz-sidebar-tree .ant-tree-switcher:focus {
+  background: transparent !important;
+}
+.kenaz-sidebar-tree .ant-tree-switcher::before,
+.kenaz-sidebar-tree .ant-tree-switcher::after {
+  display: none !important;
 }
 
 .kenaz-sidebar-tree .ant-tree-iconEle {

@@ -114,6 +114,7 @@ export default function Sidebar() {
   const [createOpen, setCreateOpen] = useState(false);
   const [createFolderPath, setCreateFolderPath] = useState<string>("");
   const [downloadingFolder, setDownloadingFolder] = useState<string | null>(null);
+  const [expandedKeys, setExpandedKeys] = useState<React.Key[]>([]);
   const [renamingKey, setRenamingKey] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const renameInputRef = useRef<HTMLInputElement>(null);
@@ -457,11 +458,20 @@ export default function Sidebar() {
                 </span>
               );
             }}
+            expandedKeys={expandedKeys}
+            onExpand={(keys) => setExpandedKeys(keys)}
             onSelect={(_, info) => {
               const node = info.node;
               if (node.isLeaf) {
                 openTab(node.key as string, node.title as string);
                 if (isMobile) setMobileDrawer(null);
+              } else {
+                const key = node.key as React.Key;
+                setExpandedKeys((prev) =>
+                  prev.includes(key)
+                    ? prev.filter((k) => k !== key)
+                    : [...prev, key],
+                );
               }
             }}
             style={{ background: "transparent" }}
