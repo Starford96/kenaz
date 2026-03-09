@@ -6,6 +6,14 @@ export interface Tab {
   title: string;
 }
 
+/** Virtual tab paths that bypass the .md check. */
+const VIRTUAL_TABS = new Set(["__graph__"]);
+
+/** Returns true when path looks like a valid note or virtual tab. */
+function isValidTabPath(p: string): boolean {
+  return VIRTUAL_TABS.has(p) || (p.endsWith(".md") && !p.endsWith("/.md"));
+}
+
 interface UIState {
   // Sidebar.
   sidebarCollapsed: boolean;
@@ -47,6 +55,7 @@ export const useUIStore = create<UIState>()(
       activeTab: null,
       openTab: (path, title) =>
         set((s) => {
+          if (!isValidTabPath(path)) return {};
           const exists = s.tabs.find((t) => t.path === path);
           if (exists) return { activeTab: path };
           return {
@@ -83,6 +92,7 @@ export const useUIStore = create<UIState>()(
     }),
     {
       name: "kenaz-ui",
+      version: 1,
       // Only persist tabs, activeTab, sidebar and panel state.
       partialize: (state) => ({
         tabs: state.tabs,
@@ -90,6 +100,19 @@ export const useUIStore = create<UIState>()(
         sidebarCollapsed: state.sidebarCollapsed,
         contextPanelOpen: state.contextPanelOpen,
       }),
+      migrate: (persisted: unknown) => {
+        const s = persisted as Record<string, unknown>;
+        if (Array.isArray(s.tabs)) {
+          s.tabs = (s.tabs as Tab[]).filter((t) => isValidTabPath(t.path));
+          if (
+            s.activeTab &&
+            !(s.tabs as Tab[]).some((t) => t.path === s.activeTab)
+          ) {
+            s.activeTab = (s.tabs as Tab[])[0]?.path ?? null;
+          }
+        }
+        return s as unknown as UIState;
+      },
     },
   ),
 );

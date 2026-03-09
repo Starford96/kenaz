@@ -180,16 +180,18 @@ export default function Sidebar() {
       message.success("Renamed");
       queryClient.invalidateQueries({ queryKey: ["notes"] });
       if (!isFolder) {
-        renameTab(oldPath, newPath);
-        queryClient.invalidateQueries({ queryKey: ["note", oldPath] });
+        const newFileName = newPath.split("/").pop() ?? newPath;
+        renameTab(oldPath, newPath, newFileName);
+        queryClient.removeQueries({ queryKey: ["note", oldPath] });
       } else {
         // For directory renames, update all open tabs with old prefix.
         const tabs = useUIStore.getState().tabs;
         for (const tab of tabs) {
           if (tab.path.startsWith(oldPath)) {
             const newTabPath = newPath.slice(0, -1) + "/" + tab.path.slice(oldPath.length);
-            renameTab(tab.path, newTabPath);
-            queryClient.invalidateQueries({ queryKey: ["note", tab.path] });
+            const tabFileName = newTabPath.split("/").pop() ?? newTabPath;
+            renameTab(tab.path, newTabPath, tabFileName);
+            queryClient.removeQueries({ queryKey: ["note", tab.path] });
           }
         }
       }
