@@ -161,6 +161,10 @@ func Run(ctx context.Context, opts ...Option) error {
 
 	logger.Info("Server starting...", slog.String("http_address", cfg.App.HTTP.Address()))
 
+	// Cancel context on SIGINT/SIGTERM so all goroutines observe shutdown.
+	ctx, stop := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
 	g, gCtx := errgroup.WithContext(ctx)
 
 	// Start file watcher with SSE callback.
@@ -179,19 +183,14 @@ func Run(ctx context.Context, opts ...Option) error {
 		return nil
 	})
 
-	// Handle shutdown signals.
+	// Graceful shutdown when context is cancelled.
 	g.Go(func() error {
-		quit := make(chan os.Signal, 1)
-		signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-
-		select {
-		case sig := <-quit:
-			logger.Info("Received shutdown signal", slog.String("signal", sig.String()))
-		case <-gCtx.Done():
-			logger.Info("Context cancelled, initiating shutdown")
-		}
-
+		<-gCtx.Done()
 		logger.Info("Shutting down server...")
+
+		// Close SSE broker first so active SSE connections drain
+		// before the HTTP server waits for them.
+		broker.Close()
 
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
