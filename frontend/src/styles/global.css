@@ -395,9 +395,11 @@ body,
 }
 
 .kenaz-sidebar-tree .ant-tree-node-content-wrapper {
-  width: 100%;
-  display: flex;
-  align-items: center;
+  min-width: 0 !important;
+  flex: 1 1 0% !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 2px;
   border-radius: 8px;
   padding: 7px 10px;
   min-height: 36px;
@@ -414,6 +416,9 @@ body,
 
 .kenaz-sidebar-tree .ant-tree-title {
   font-size: 13.5px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .kenaz-sidebar-tree .ant-tree-indent-unit {
@@ -422,16 +427,21 @@ body,
 
 .kenaz-sidebar-tree .ant-tree-switcher {
   width: 22px;
-  display: flex;
+  min-width: 22px;
+  display: inline-flex !important;
   align-items: center;
   justify-content: center;
+  vertical-align: middle;
 }
 
 .kenaz-sidebar-tree .ant-tree-iconEle {
   width: 18px;
-  display: flex;
+  min-width: 18px;
+  display: inline-flex !important;
   align-items: center;
   justify-content: center;
+  vertical-align: middle;
+  margin-inline-end: 2px;
 }
 
 @media (max-width: 767px) {
@@ -450,9 +460,24 @@ body,
   flex-direction: column;
 }
 
-/* ── Desktop tabs: prevent overflow ──────────────────────── */
+/* ── Desktop tabs: height chain + prevent overflow ────────── */
+.ant-tabs {
+  display: flex;
+  flex-direction: column;
+}
+.ant-tabs-content-holder {
+  flex: 1;
+  min-height: 0;
+}
+.ant-tabs-content {
+  height: 100%;
+}
+.ant-tabs-tabpane-active {
+  height: 100%;
+}
 .ant-tabs-nav {
   margin-bottom: 0 !important;
+  flex-shrink: 0;
 }
 .ant-tabs-nav-wrap {
   overflow: hidden !important;
