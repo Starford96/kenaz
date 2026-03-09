@@ -13,12 +13,14 @@ import (
 
 // FS implements Provider backed by the local file system.
 type FS struct {
-	root string // absolute path to vault directory
+	root      string                 // absolute path to vault directory
+	ignoreSet map[string]struct{}    // directory base names to skip
 }
 
 // NewFS creates a new FS provider rooted at the given directory.
-// The directory must already exist.
-func NewFS(root string) (*FS, error) {
+// The directory must already exist. ignoreDirs specifies directory
+// base names to exclude from listing/walking.
+func NewFS(root string, ignoreDirs []string) (*FS, error) {
 	abs, err := filepath.Abs(root)
 	if err != nil {
 		return nil, fmt.Errorf("storage: resolve root: %w", err)
@@ -30,7 +32,17 @@ func NewFS(root string) (*FS, error) {
 	if !info.IsDir() {
 		return nil, fmt.Errorf("storage: root is not a directory: %s", abs)
 	}
-	return &FS{root: abs}, nil
+	ignoreSet := make(map[string]struct{}, len(ignoreDirs))
+	for _, d := range ignoreDirs {
+		ignoreSet[d] = struct{}{}
+	}
+	return &FS{root: abs, ignoreSet: ignoreSet}, nil
+}
+
+// isIgnored returns true if the directory name should be skipped.
+func (f *FS) isIgnored(name string) bool {
+	_, ok := f.ignoreSet[name]
+	return ok
 }
 
 // safePath resolves a relative path against the vault root and rejects
@@ -66,7 +78,13 @@ func (f *FS) List(dir string) ([]models.NoteMetadata, error) {
 		if walkErr != nil {
 			return walkErr
 		}
-		if d.IsDir() || !strings.HasSuffix(d.Name(), ".md") {
+		if d.IsDir() {
+			if p != base && f.isIgnored(d.Name()) {
+				return fs.SkipDir
+			}
+			return nil
+		}
+		if !strings.HasSuffix(d.Name(), ".md") {
 			return nil
 		}
 		info, err := d.Info()
@@ -182,6 +200,9 @@ func (f *FS) ListDirs() ([]string, error) {
 		}
 		if p == f.root {
 			return nil
+		}
+		if f.isIgnored(d.Name()) {
+			return fs.SkipDir
 		}
 		rel, _ := filepath.Rel(f.root, p)
 		dirs = append(dirs, rel)

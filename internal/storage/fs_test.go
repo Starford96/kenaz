@@ -9,7 +9,7 @@ import (
 func tempVault(t *testing.T) *FS {
 	t.Helper()
 	dir := t.TempDir()
-	fs, err := NewFS(dir)
+	fs, err := NewFS(dir, nil)
 	if err != nil {
 		t.Fatalf("NewFS: %v", err)
 	}
@@ -131,8 +131,109 @@ func TestAtomicWriteNoCorruption(t *testing.T) {
 	}
 }
 
+func tempVaultWithIgnore(t *testing.T, ignoreDirs []string) *FS {
+	t.Helper()
+	dir := t.TempDir()
+	fs, err := NewFS(dir, ignoreDirs)
+	if err != nil {
+		t.Fatalf("NewFS: %v", err)
+	}
+	return fs
+}
+
+func TestListDirs_IgnoresConfiguredDirs(t *testing.T) {
+	s := tempVaultWithIgnore(t, []string{".git", "attachments"})
+
+	for _, d := range []string{"visible", ".git", "attachments", "nested/deep"} {
+		if err := os.MkdirAll(filepath.Join(s.root, d), 0o750); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	dirs, err := s.ListDirs()
+	if err != nil {
+		t.Fatalf("ListDirs: %v", err)
+	}
+
+	dirSet := make(map[string]struct{})
+	for _, d := range dirs {
+		dirSet[d] = struct{}{}
+	}
+
+	for _, want := range []string{"visible", "nested", filepath.Join("nested", "deep")} {
+		if _, ok := dirSet[want]; !ok {
+			t.Errorf("expected dir %q in result, got %v", want, dirs)
+		}
+	}
+	for _, excluded := range []string{".git", "attachments"} {
+		if _, ok := dirSet[excluded]; ok {
+			t.Errorf("dir %q should be excluded, got %v", excluded, dirs)
+		}
+	}
+}
+
+func TestListDirs_IgnoresNestedDirsByName(t *testing.T) {
+	s := tempVaultWithIgnore(t, []string{".git"})
+
+	for _, d := range []string{"nested/.git/objects", "nested/visible"} {
+		if err := os.MkdirAll(filepath.Join(s.root, d), 0o750); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	dirs, err := s.ListDirs()
+	if err != nil {
+		t.Fatalf("ListDirs: %v", err)
+	}
+
+	for _, d := range dirs {
+		if filepath.Base(d) == ".git" || filepath.Dir(d) == ".git" {
+			t.Errorf("found .git-related dir in results: %v", dirs)
+		}
+	}
+}
+
+func TestListDirs_NoIgnoreDirs(t *testing.T) {
+	s := tempVaultWithIgnore(t, nil)
+
+	for _, d := range []string{".git", "attachments", "notes"} {
+		if err := os.MkdirAll(filepath.Join(s.root, d), 0o750); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	dirs, err := s.ListDirs()
+	if err != nil {
+		t.Fatalf("ListDirs: %v", err)
+	}
+	if len(dirs) != 3 {
+		t.Errorf("expected 3 dirs, got %d: %v", len(dirs), dirs)
+	}
+}
+
+func TestList_SkipsIgnoredDirs(t *testing.T) {
+	s := tempVaultWithIgnore(t, []string{".git"})
+
+	_ = s.Write("visible/note.md", []byte("# Note"))
+
+	gitDir := filepath.Join(s.root, ".git")
+	_ = os.MkdirAll(gitDir, 0o750)
+	_ = os.WriteFile(filepath.Join(gitDir, "HEAD.md"), []byte("not a note"), 0o600)
+
+	items, err := s.List("")
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if len(items) != 1 {
+		t.Errorf("expected 1 item, got %d", len(items))
+	}
+	if len(items) > 0 && items[0].Path != filepath.Join("visible", "note.md") {
+		t.Errorf("path = %q", items[0].Path)
+	}
+}
+
 func TestNewFS_NonExistentDir(t *testing.T) {
-	_, err := NewFS("/tmp/kenaz-does-not-exist-" + t.Name())
+	_, err := NewFS("/tmp/kenaz-does-not-exist-"+t.Name(), nil)
 	if err == nil {
 		t.Error("expected error for non-existent dir")
 	}
@@ -142,7 +243,7 @@ func TestNewFS_FileNotDir(t *testing.T) {
 	f, _ := os.CreateTemp("", "kenaz-test-*")
 	_ = f.Close()
 	defer os.Remove(f.Name())
-	_, err := NewFS(f.Name())
+	_, err := NewFS(f.Name(), nil)
 	if err == nil {
 		t.Error("expected error when root is a file")
 	}

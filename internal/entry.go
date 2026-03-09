@@ -60,7 +60,7 @@ func Run(ctx context.Context, opts ...Option) error {
 	}
 
 	// Initialize storage.
-	store, err := storage.NewFS(cfg.Vault.Path)
+	store, err := storage.NewFS(cfg.Vault.Path, cfg.Vault.IgnoreDirs)
 	if err != nil {
 		return fmt.Errorf("init storage: %w", err)
 	}

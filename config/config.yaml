@@ -5,6 +5,9 @@ app:
 
 vault:
   path: ${VAULT_PATH:-./vault}
+  ignore_dirs:
+    - .git
+    - attachments
 
 sqlite:
   path: ${SQLITE_PATH:-./kenaz.db}

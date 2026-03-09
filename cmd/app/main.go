@@ -48,7 +48,7 @@ func runMCP(ctx context.Context, cmd *cli.Command) error {
 		return fmt.Errorf("create vault dir: %w", err)
 	}
 
-	store, err := storage.NewFS(cfg.Vault.Path)
+	store, err := storage.NewFS(cfg.Vault.Path, cfg.Vault.IgnoreDirs)
 	if err != nil {
 		return fmt.Errorf("init storage: %w", err)
 	}

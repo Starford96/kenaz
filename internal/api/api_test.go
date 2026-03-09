@@ -38,7 +38,7 @@ func testEnvWithVault(t *testing.T, authEnabled bool, authToken string) (*notese
 	t.Helper()
 
 	vaultDir := t.TempDir()
-	store, err := storage.NewFS(vaultDir)
+	store, err := storage.NewFS(vaultDir, nil)
 	if err != nil {
 		t.Fatalf("NewFS: %v", err)
 	}
@@ -425,7 +425,7 @@ func testEnvWithSSE(t *testing.T, authEnabled bool, token string) (*noteservice.
 	t.Helper()
 
 	vaultDir := t.TempDir()
-	store, err := storage.NewFS(vaultDir)
+	store, err := storage.NewFS(vaultDir, nil)
 	if err != nil {
 		t.Fatalf("NewFS: %v", err)
 	}

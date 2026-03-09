@@ -69,7 +69,8 @@ func (c *HTTPConfig) Validate() error {
 
 // VaultConfig holds the path to the Markdown vault directory.
 type VaultConfig struct {
-	Path string `yaml:"path"`
+	Path       string   `yaml:"path"`
+	IgnoreDirs []string `yaml:"ignore_dirs"`
 }
 
 // Validate validates the vault configuration.
@@ -149,7 +150,8 @@ func NewDefaultConfig() *Config {
 			},
 		},
 		Vault: VaultConfig{
-			Path: "./vault",
+			Path:       "./vault",
+			IgnoreDirs: []string{".git", ".obsidian", "attachments"},
 		},
 		SQLite: SQLiteConfig{
 			Path: "./kenaz.db",

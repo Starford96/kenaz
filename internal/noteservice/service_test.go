@@ -15,7 +15,7 @@ import (
 func testService(t *testing.T) *Service {
 	t.Helper()
 	vaultDir := t.TempDir()
-	store, err := storage.NewFS(vaultDir)
+	store, err := storage.NewFS(vaultDir, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
