@@ -95,7 +95,7 @@ func Run(ctx context.Context, opts ...Option) error {
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
-	r.Use(middleware.Logger)
+	r.Use(api.SlogRequestLogger)
 	r.Use(middleware.Recoverer)
 
 	// Health check endpoints (unauthenticated).
