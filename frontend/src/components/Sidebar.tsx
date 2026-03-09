@@ -25,7 +25,7 @@ function buildTree(notes: NoteListItem[]): DataNode[] {
 
   for (const note of notes) {
     const parts = note.path.split("/");
-    let current = root;
+    const current = root;
 
     for (let i = 0; i < parts.length; i++) {
       const part = parts[i];
@@ -114,6 +114,7 @@ export default function Sidebar() {
 
   return (
     <div
+      className="kenaz-sidebar"
       style={{
         padding: isMobile ? 14 : 12,
         height: "100%",
@@ -125,7 +126,7 @@ export default function Sidebar() {
         <div
           style={{
             display: "flex",
-            gap: 4,
+            gap: 8,
             alignItems: "center",
             minWidth: 0,
           }}
@@ -135,7 +136,7 @@ export default function Sidebar() {
             prefix={<SearchOutlined />}
             onFocus={() => setSearchOpen(true)}
             allowClear
-            size="small"
+            size="middle"
             style={{ flex: 1, minWidth: 0 }}
           />
           <Button
@@ -169,6 +170,8 @@ export default function Sidebar() {
           <Tree
             showIcon
             treeData={treeData}
+            blockNode
+            className="kenaz-sidebar-tree"
             titleRender={(node) => {
               const isFolder = !node.isLeaf;
               const key = node.key as string;
@@ -178,7 +181,7 @@ export default function Sidebar() {
                   style={{
                     display: "flex",
                     alignItems: "center",
-                    gap: 2,
+                    gap: 6,
                     width: "100%",
                   }}
                 >

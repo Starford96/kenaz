@@ -385,6 +385,62 @@ body,
   -webkit-backdrop-filter: blur(4px);
 }
 
+/* ── Sidebar note tree (scoped overrides) ─────────────────── */
+.kenaz-sidebar-tree .ant-tree {
+  background: transparent;
+}
+
+.kenaz-sidebar-tree .ant-tree-treenode {
+  padding: 2px 0;
+}
+
+.kenaz-sidebar-tree .ant-tree-node-content-wrapper {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  border-radius: 8px;
+  padding: 7px 10px;
+  min-height: 36px;
+  line-height: 1.35;
+}
+
+.kenaz-sidebar-tree .ant-tree-node-content-wrapper:hover {
+  background: var(--accent-muted) !important;
+}
+
+.kenaz-sidebar-tree .ant-tree-node-selected {
+  background: var(--accent-muted-active) !important;
+}
+
+.kenaz-sidebar-tree .ant-tree-title {
+  font-size: 13.5px;
+}
+
+.kenaz-sidebar-tree .ant-tree-indent-unit {
+  width: 18px;
+}
+
+.kenaz-sidebar-tree .ant-tree-switcher {
+  width: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.kenaz-sidebar-tree .ant-tree-iconEle {
+  width: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (max-width: 767px) {
+  .kenaz-sidebar-tree .ant-tree-node-content-wrapper {
+    padding: 10px 12px;
+    min-height: 44px;
+  }
+}
+
 /* ── Mobile search palette ───────────────────────────────── */
 .kenaz-palette--mobile .ant-modal-content {
   border-radius: 0 !important;
