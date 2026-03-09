@@ -290,7 +290,7 @@ export default function Sidebar() {
         minWidth: 0,
       }}
     >
-      <Space direction="vertical" style={{ width: "100%", minWidth: 0 }} size="small">
+      <Space orientation="vertical" style={{ width: "100%", minWidth: 0 }} size="small">
         <div
           style={{
             display: "flex",

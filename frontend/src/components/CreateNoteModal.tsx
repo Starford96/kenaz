@@ -76,7 +76,7 @@ export default function CreateNoteModal({
       onCancel={handleCancel}
       okText="Create"
       confirmLoading={mutation.isPending}
-      destroyOnClose
+      destroyOnHidden
       width={480}
     >
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>

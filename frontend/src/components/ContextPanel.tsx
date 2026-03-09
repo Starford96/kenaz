@@ -42,7 +42,7 @@ export default function ContextPanel() {
   return (
     <div style={{ padding: 12, height: "100%", overflow: "auto" }}>
       {/* Backlinks */}
-      <Divider orientationMargin={0} plain style={{ marginTop: 0 }}>
+      <Divider styles={{ content: { margin: 0 } }} plain style={{ marginTop: 0 }}>
         <LinkOutlined /> Backlinks
       </Divider>
       {note?.backlinks && note.backlinks.length > 0 ? (
@@ -65,7 +65,7 @@ export default function ContextPanel() {
       )}
 
       {/* Outline */}
-      <Divider orientationMargin={0} plain>
+      <Divider styles={{ content: { margin: 0 } }} plain>
         <OrderedListOutlined /> Outline
       </Divider>
       {headings.length > 0 ? (
