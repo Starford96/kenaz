@@ -94,6 +94,20 @@ updated_at: "{{RFC3339_UTC}}"
 - Agent should pass valid Markdown content.
 - If frontmatter is included, it should follow the schema guidance above.
 
+### `update_note`
+
+- Inputs:
+  - `path` (string, required)
+  - `content` (string, required)
+  - `checksum` (string, optional — SHA-256 of current content for conflict detection)
+- Same content expectations as `create_note`.
+
+### `delete_note`
+
+- Inputs:
+  - `path` (string, required)
+- Removes the note from the vault.
+
 ### `read_note`
 
 - Returns raw file content.
@@ -110,6 +124,18 @@ updated_at: "{{RFC3339_UTC}}"
 ### `get_backlinks`
 
 - Backlinks are based on wikilink targets; consistent wikilink syntax is required.
+
+### `get_note_contract`
+
+- Returns this contract as text. Call before creating or updating notes.
+
+### `upload_asset`
+
+- Inputs:
+  - `url` (string, required — HTTP/HTTPS URL or base64 data URI)
+  - `filename` (string, optional)
+- Downloads file and saves to `attachments/` directory.
+- Returns `savedPath` and `markdownImage` ready to paste into a note.
 
 ## Example: Good Agent-Created Note
 
