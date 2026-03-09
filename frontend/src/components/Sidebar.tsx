@@ -299,6 +299,7 @@ export default function Sidebar() {
                       lineHeight: "inherit",
                       outline: "none",
                       background: "var(--ant-color-bg-container, #fff)",
+                      color: "var(--ant-color-text, #000)",
                     }}
                   />
                 );
