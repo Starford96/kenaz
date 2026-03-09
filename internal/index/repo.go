@@ -96,6 +96,32 @@ func (db *DB) DeleteNote(path string) error {
 	return tx.Commit()
 }
 
+// DeleteNotesBatch removes multiple notes, their FTS entries, and outgoing links in a single transaction.
+func (db *DB) DeleteNotesBatch(paths []string) error {
+	if len(paths) == 0 {
+		return nil
+	}
+	tx, err := db.conn.Begin()
+	if err != nil {
+		return fmt.Errorf("index: begin tx: %w", err)
+	}
+	defer tx.Rollback() //nolint:errcheck
+
+	for _, path := range paths {
+		if err := ftsDelete(tx, path); err != nil {
+			return fmt.Errorf("index: fts delete %s: %w", path, err)
+		}
+		if _, err := tx.Exec(`DELETE FROM links WHERE source = ?`, path); err != nil {
+			return fmt.Errorf("index: delete links %s: %w", path, err)
+		}
+		if _, err := tx.Exec(`DELETE FROM notes WHERE path = ?`, path); err != nil {
+			return fmt.Errorf("index: delete note %s: %w", path, err)
+		}
+	}
+
+	return tx.Commit()
+}
+
 // GetChecksum returns the stored checksum for a note, or empty string if not found.
 func (db *DB) GetChecksum(path string) (string, error) {
 	var cs string

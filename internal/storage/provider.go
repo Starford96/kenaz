@@ -13,6 +13,10 @@ type Provider interface {
 	Write(path string, content []byte) error
 	// Delete removes the file at path (relative to vault root).
 	Delete(path string) error
+	// DeleteDir removes a directory and everything inside it.
+	DeleteDir(path string) error
+	// ListDirs returns all directory paths relative to vault root.
+	ListDirs() ([]string, error)
 	// Move renames oldPath to newPath (both relative to vault root).
 	Move(oldPath, newPath string) error
 }

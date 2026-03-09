@@ -244,17 +244,22 @@ paths:
         - BearerAuth: []
       tags:
         - notes
-      summary: Delete a note
+      summary: Delete a note or directory
       parameters:
-        - description: Note path
+        - description: Note or directory path
           name: path
           in: path
           required: true
           schema:
             type: string
+        - description: Set to true to delete a directory recursively
+          name: dir
+          in: query
+          schema:
+            type: string
       responses:
         "204":
-          description: Note deleted
+          description: Deleted
         "404":
           description: Not Found
           content:
@@ -429,6 +434,10 @@ components:
         - notes
         - total
       properties:
+        dirs:
+          type: array
+          items:
+            type: string
         notes:
           type: array
           items:

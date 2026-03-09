@@ -351,20 +351,23 @@ export interface paths {
             };
         };
         post?: never;
-        /** Delete a note */
+        /** Delete a note or directory */
         delete: {
             parameters: {
-                query?: never;
+                query?: {
+                    /** @description Set to true to delete a directory recursively */
+                    dir?: string;
+                };
                 header?: never;
                 path: {
-                    /** @description Note path */
+                    /** @description Note or directory path */
                     path: string;
                 };
                 cookie?: never;
             };
             requestBody?: never;
             responses: {
-                /** @description Note deleted */
+                /** @description Deleted */
                 204: {
                     headers: {
                         [name: string]: unknown;
@@ -494,6 +497,7 @@ export interface components {
             updated_at: string;
         };
         NoteListResponse: {
+            dirs?: string[];
             notes: components["schemas"]["NoteListItem"][];
             /** @example 42 */
             total: number;

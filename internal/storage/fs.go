@@ -158,6 +158,41 @@ func (f *FS) Delete(path string) error {
 	return nil
 }
 
+// DeleteDir removes a directory and all its contents from the vault.
+func (f *FS) DeleteDir(path string) error {
+	abs, err := f.safePath(path)
+	if err != nil {
+		return err
+	}
+	if err := os.RemoveAll(abs); err != nil {
+		return fmt.Errorf("storage: delete dir %s: %w", path, err)
+	}
+	return nil
+}
+
+// ListDirs returns all directory paths (relative to vault root).
+func (f *FS) ListDirs() ([]string, error) {
+	var dirs []string
+	err := filepath.WalkDir(f.root, func(p string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if !d.IsDir() {
+			return nil
+		}
+		if p == f.root {
+			return nil
+		}
+		rel, _ := filepath.Rel(f.root, p)
+		dirs = append(dirs, rel)
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("storage: list dirs: %w", err)
+	}
+	return dirs, nil
+}
+
 // Move renames a file within the vault.
 func (f *FS) Move(oldPath, newPath string) error {
 	absOld, err := f.safePath(oldPath)

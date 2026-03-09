@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Input, Tree, Typography, Spin, Space, Button, App } from "antd";
+import { Input, Tree, Typography, Spin, Space, Button, App, Modal } from "antd";
 import {
   FileMarkdownOutlined,
   FolderOutlined,
@@ -9,9 +9,10 @@ import {
   ApartmentOutlined,
   DownloadOutlined,
   EditOutlined,
+  DeleteOutlined,
 } from "@ant-design/icons";
 import type { DataNode } from "antd/es/tree";
-import { listNotes, getNote, renameNote, type NoteListItem } from "../api/notes";
+import { listNotes, getNote, renameNote, deleteNote, deleteDir, type NoteListItem } from "../api/notes";
 import { downloadDirectory } from "../utils/downloadNote";
 import { useUIStore } from "../store/ui";
 import { useIsMobile } from "../hooks/useIsMobile";
@@ -36,9 +37,38 @@ function sortTree(nodes: DataNode[]): DataNode[] {
     );
 }
 
-/** Build a tree structure from flat note paths. */
-function buildTree(notes: NoteListItem[]): DataNode[] {
+/** Ensure a directory path exists in the tree, creating parent nodes as needed. */
+function ensureDir(root: Record<string, DataNode>, dirPath: string) {
+  const parts = dirPath.split("/");
+  for (let i = 0; i < parts.length; i++) {
+    const key = parts.slice(0, i + 1).join("/");
+    if (!root[key]) {
+      root[key] = {
+        key,
+        title: parts[i],
+        icon: <FolderOutlined />,
+        children: [],
+        isLeaf: false,
+      };
+      if (i > 0) {
+        const parentKey = parts.slice(0, i).join("/");
+        const parent = root[parentKey];
+        if (parent && parent.children) {
+          parent.children.push(root[key]);
+        }
+      }
+    }
+  }
+}
+
+/** Build a tree structure from flat note paths and directory list. */
+function buildTree(notes: NoteListItem[], dirs: string[] = []): DataNode[] {
   const root: Record<string, DataNode> = {};
+
+  // First, create nodes for all known directories.
+  for (const dir of dirs) {
+    ensureDir(root, dir);
+  }
 
   for (const note of notes) {
     const parts = note.path.split("/");
@@ -206,7 +236,48 @@ export default function Sidebar() {
     setRenamingKey(null);
   }, []);
 
-  const treeData = data ? buildTree(data.notes ?? []) : [];
+  const handleDelete = useCallback(
+    (key: string, isFolder: boolean) => {
+      const name = key.split("/").pop() ?? key;
+      Modal.confirm({
+        title: `Delete ${name}?`,
+        content: isFolder
+          ? "This will delete the directory and all notes inside. This action cannot be undone."
+          : "This action cannot be undone.",
+        okText: "Delete",
+        okType: "danger",
+        onOk: async () => {
+          try {
+            if (isFolder) {
+              await deleteDir(key);
+            } else {
+              await deleteNote(key);
+            }
+            message.success("Deleted");
+            queryClient.invalidateQueries({ queryKey: ["notes"] });
+            if (isFolder) {
+              const prefix = `${key}/`;
+              const tabs = useUIStore.getState().tabs;
+              for (const tab of tabs) {
+                if (tab.path.startsWith(prefix)) {
+                  useUIStore.getState().closeTab(tab.path);
+                  queryClient.removeQueries({ queryKey: ["note", tab.path] });
+                }
+              }
+            } else {
+              useUIStore.getState().closeTab(key);
+              queryClient.removeQueries({ queryKey: ["note", key] });
+            }
+          } catch (err) {
+            message.error(err instanceof Error ? err.message : "Delete failed");
+          }
+        },
+      });
+    },
+    [message, queryClient],
+  );
+
+  const treeData = data ? buildTree(data.notes ?? [], data.dirs ?? []) : [];
 
   return (
     <div
@@ -338,6 +409,19 @@ export default function Sidebar() {
                       startRename(key, isFolder);
                     }}
                     title="Rename"
+                    className="kenaz-tree-action"
+                    style={{ paddingInline: 4, minWidth: 0 }}
+                  />
+                  <Button
+                    type="text"
+                    size="small"
+                    danger
+                    icon={<DeleteOutlined />}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDelete(key, isFolder);
+                    }}
+                    title="Delete"
                     className="kenaz-tree-action"
                     style={{ paddingInline: 4, minWidth: 0 }}
                   />

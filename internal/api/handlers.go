@@ -64,9 +64,14 @@ func (h *Handler) ListNotes(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, errorBody("internal error"))
 		return
 	}
+	dirs, _ := h.svc.ListDirs()
+	if dirs == nil {
+		dirs = []string{}
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"notes": items,
 		"total": total,
+		"dirs":  dirs,
 	})
 }
 
@@ -199,11 +204,13 @@ func (h *Handler) UpdateNote(w http.ResponseWriter, r *http.Request) {
 }
 
 // DeleteNote handles DELETE /api/notes/*.
+// If the path ends with "/" it deletes the entire directory and all notes inside.
 //
-//	@Summary		Delete a note
+//	@Summary		Delete a note or directory
 //	@Tags			notes
-//	@Param			path	path	string	true	"Note path"
-//	@Success		204		"Note deleted"
+//	@Param			path	path	string	true	"Note or directory path"
+//	@Param			dir		query	string	false	"Set to true to delete a directory recursively"
+//	@Success		204		"Deleted"
 //	@Failure		404		{object}	errResponse
 //	@Security		BearerAuth
 //	@Router			/notes/{path} [delete]
@@ -213,6 +220,23 @@ func (h *Handler) DeleteNote(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, errorBody("path is required"))
 		return
 	}
+
+	// Directory delete: ?dir=true query param or path ends with "/".
+	if r.URL.Query().Get("dir") == "true" || strings.HasSuffix(path, "/") {
+		prefix := strings.TrimSuffix(path, "/") + "/"
+		if _, err := h.svc.DeleteDir(r.Context(), prefix); err != nil {
+			if errors.Is(err, apperr.ErrNotFound) {
+				writeJSON(w, http.StatusNotFound, errorBody("directory not found"))
+			} else {
+				slog.Error("delete dir failed", slog.String("path", path), slog.String("error", err.Error())) //nolint:gosec // paths are validated by storage layer
+				writeJSON(w, http.StatusInternalServerError, errorBody("internal error"))
+			}
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
 	if err := h.svc.DeleteNote(r.Context(), path); err != nil {
 		slog.Error("delete note failed", slog.String("path", path), slog.String("error", err.Error()))
 		writeJSON(w, http.StatusNotFound, errorBody("not found"))

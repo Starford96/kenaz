@@ -186,6 +186,39 @@ func TestDeleteNote(t *testing.T) {
 	}
 }
 
+func TestDeleteDir(t *testing.T) {
+	_, router := testEnv(t, "")
+
+	// Create two notes inside a subdirectory.
+	for _, name := range []string{"sub/a.md", "sub/b.md"} {
+		body, _ := json.Marshal(map[string]string{"path": name, "content": "# " + name})
+		req := httptest.NewRequest(http.MethodPost, "/notes", bytes.NewReader(body))
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		if w.Code != http.StatusCreated {
+			t.Fatalf("create %s = %d, want 201", name, w.Code)
+		}
+	}
+
+	// Delete directory via ?dir=true query param.
+	req := httptest.NewRequest(http.MethodDelete, "/notes/sub?dir=true", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	if w.Code != http.StatusNoContent {
+		t.Errorf("delete dir = %d, want 204", w.Code)
+	}
+
+	// Both notes should now 404.
+	for _, name := range []string{"sub/a.md", "sub/b.md"} {
+		req = httptest.NewRequest(http.MethodGet, "/notes/"+name, nil)
+		w = httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		if w.Code != http.StatusNotFound {
+			t.Errorf("get %s after delete dir = %d, want 404", name, w.Code)
+		}
+	}
+}
+
 func TestListNotes(t *testing.T) {
 	_, router := testEnv(t, "")
 

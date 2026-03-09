@@ -27,6 +27,7 @@ type NoteListItem = noteservice.NoteListItem
 type NoteListResponse struct {
 	Notes []NoteListItem `json:"notes" validate:"required"`
 	Total int            `json:"total" example:"42" validate:"required"`
+	Dirs  []string       `json:"dirs"`
 }
 
 // SearchResult is a single search hit in the API response.

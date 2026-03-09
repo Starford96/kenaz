@@ -103,6 +103,38 @@ func (s *Service) DeleteNote(_ context.Context, path string) error {
 	return s.db.DeleteNote(path)
 }
 
+// DeleteDir removes a directory and all notes within it from storage and index.
+func (s *Service) DeleteDir(_ context.Context, prefix string) ([]string, error) {
+	notes, err := s.db.NotesWithPrefix(prefix)
+	if err != nil {
+		return nil, err
+	}
+	if len(notes) == 0 {
+		return nil, apperr.ErrNotFound
+	}
+
+	paths := make([]string, len(notes))
+	for i, n := range notes {
+		paths[i] = n.Path
+	}
+
+	if err := s.db.DeleteNotesBatch(paths); err != nil {
+		return nil, err
+	}
+
+	dirPath := strings.TrimSuffix(prefix, "/")
+	if err := s.store.DeleteDir(dirPath); err != nil {
+		return nil, err
+	}
+
+	return paths, nil
+}
+
+// ListDirs returns all directory paths from the vault filesystem.
+func (s *Service) ListDirs() ([]string, error) {
+	return s.store.ListDirs()
+}
+
 // ListNotes returns paginated notes with optional tag filter.
 func (s *Service) ListNotes(_ context.Context, limit, offset int, tag, sort string) ([]NoteListItem, int, error) {
 	rows, total, err := s.db.ListNotes(limit, offset, tag, sort)

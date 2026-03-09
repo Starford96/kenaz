@@ -72,6 +72,14 @@ export async function deleteNote(path: string) {
   if (error) throw new Error(error.error);
 }
 
+/** Delete a directory and all notes inside it. */
+export async function deleteDir(path: string) {
+  const { error } = await api.DELETE("/notes/{path}", {
+    params: { path: { path }, query: { dir: "true" } },
+  });
+  if (error) throw new Error(error.error);
+}
+
 /** Rename a note or directory. */
 export async function renameNote(oldPath: string, newPath: string) {
   const { data, error } = await api.POST("/notes/rename", {
